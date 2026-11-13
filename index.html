@@ -1086,7 +1086,7 @@
         //   - 在自己電腦用 Live Server 開（127.0.0.1 / localhost）→ 連本機後端 http://localhost:3000
         //   - 在 GitHub Pages 開 → 連雲端後端（Render）
         //   部署到 Render 後，把 CLOUD_API_BASE 改成 Render 給你的網址（結尾不要加 /）
-        const CLOUD_API_BASE = "";
+        const CLOUD_API_BASE = "https://ntunhs-course-planner.onrender.com";
         const IS_LOCAL_PAGE = ["localhost", "127.0.0.1", ""].includes(location.hostname);
         const API_BASE = (IS_LOCAL_PAGE || !CLOUD_API_BASE) ? "http://localhost:3000" : CLOUD_API_BASE;
         

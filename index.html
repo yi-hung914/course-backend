@@ -175,6 +175,23 @@
             font-size: 1em;
         }
         
+        /* 【新增】登入 / 註冊切換 */
+        .auth-switch {
+            margin-top: 15px;
+            font-size: 0.9em;
+            color: #666;
+        }
+        .auth-switch a {
+            color: #007d66;
+            font-weight: bold;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .login-btn:disabled {
+            opacity: 0.6;
+            cursor: wait;
+        }
+
         .login-btn {
             width: 100%; 
             padding: 12px; 
@@ -790,10 +807,17 @@
     <div id="login-overlay">
         <div class="login-card">
             <h1>NTUNHS 課程規劃系統</h1>
-            <p>請輸入學號與密碼進入系統</p>
-            <input type="text" id="username" placeholder="學號">
-            <input type="password" id="password" placeholder="密碼">
-            <button class="login-btn" onclick="handleLogin()">登入系統</button>
+            <p id="auth-subtitle">請輸入學號與密碼進入系統</p>
+            <input type="text" id="username" placeholder="學號" autocomplete="username">
+            <input type="password" id="password" placeholder="密碼" autocomplete="current-password">
+            <!-- 【新增】註冊時才顯示：再輸入一次密碼 -->
+            <input type="password" id="password-confirm" placeholder="再輸入一次密碼" autocomplete="new-password" style="display: none;">
+            <button class="login-btn" id="auth-submit" onclick="handleAuthSubmit()">登入系統</button>
+            <!-- 【新增】登入 / 註冊切換：上線後別人要能自己註冊帳號 -->
+            <p class="auth-switch">
+                <span id="auth-switch-text">還沒有帳號？</span>
+                <a href="javascript:void(0)" id="auth-switch-link" onclick="toggleAuthMode()">註冊新帳號</a>
+            </p>
         </div>
     </div>
 
@@ -1058,7 +1082,13 @@
 }
 
         // ===== API 設定 =====
-        const API_BASE = "http://localhost:3000";
+        // 【修改】後端網址：
+        //   - 在自己電腦用 Live Server 開（127.0.0.1 / localhost）→ 連本機後端 http://localhost:3000
+        //   - 在 GitHub Pages 開 → 連雲端後端（Render）
+        //   部署到 Render 後，把 CLOUD_API_BASE 改成 Render 給你的網址（結尾不要加 /）
+        const CLOUD_API_BASE = "";
+        const IS_LOCAL_PAGE = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+        const API_BASE = (IS_LOCAL_PAGE || !CLOUD_API_BASE) ? "http://localhost:3000" : CLOUD_API_BASE;
         
         let auth = {
             accessToken: localStorage.getItem("accessToken") || "",
@@ -1460,6 +1490,69 @@ function resetToFirstPageAndReload() {
         }
 
         // ===== 登入/登出功能 =====
+        // ===== 【新增】登入 / 註冊切換 =====
+        let authMode = "login";   // "login" 或 "register"
+
+        function toggleAuthMode() {
+            authMode = authMode === "login" ? "register" : "login";
+            const isReg = authMode === "register";
+            document.getElementById("auth-subtitle").textContent = isReg
+                ? "用學號建立帳號（密碼至少 6 個字）"
+                : "請輸入學號與密碼進入系統";
+            document.getElementById("password-confirm").style.display = isReg ? "block" : "none";
+            document.getElementById("password").autocomplete = isReg ? "new-password" : "current-password";
+            document.getElementById("auth-submit").textContent = isReg ? "註冊並登入" : "登入系統";
+            document.getElementById("auth-switch-text").textContent = isReg ? "已經有帳號？" : "還沒有帳號？";
+            document.getElementById("auth-switch-link").textContent = isReg ? "回到登入" : "註冊新帳號";
+        }
+
+        async function handleAuthSubmit() {
+            const btn = document.getElementById("auth-submit");
+            const oldText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = "處理中...（第一次連線可能要等 30 秒）";   // 雲端免費主機閒置後會休眠，第一次要等它醒來
+            try {
+                if (authMode === "register") await handleRegister();
+                else await handleLogin();
+            } finally {
+                btn.disabled = false;
+                btn.textContent = oldText;
+            }
+        }
+
+        async function handleRegister() {
+            const user = document.getElementById("username").value.trim();
+            const pass = document.getElementById("password").value;
+            const pass2 = document.getElementById("password-confirm").value;
+
+            if (!user) return alert("請輸入學號");
+            if (pass.length < 6) return alert("密碼至少要 6 個字");
+            if (pass !== pass2) return alert("兩次輸入的密碼不一樣");
+
+            try {
+                await apiFetch("/api/auth/register", {
+                    method: "POST",
+                    body: { email: user, password: pass, username: user },
+                });
+            } catch (e) {
+                if (String(e.message).includes("已被註冊")) {
+                    return alert("這個學號已經註冊過了，請直接登入");
+                }
+                return alert(`註冊失敗：${e.message}`);
+            }
+
+            // 註冊成功就直接登入
+            document.getElementById("password-confirm").value = "";
+            toggleAuthMode();
+            await handleLogin();
+        }
+
+        // 按 Enter 也能送出
+        ["username", "password", "password-confirm"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") handleAuthSubmit(); });
+        });
+
         async function handleLogin() {
             const user = document.getElementById("username").value.trim();
             const pass = document.getElementById("password").value;

@@ -9,3 +9,8 @@ prisma/query-engine-*.node
 
 # Raw excel (不建議上 repo)
 data/raw/
+
+# Mac 系統檔、備份檔（不要上傳）
+.DS_Store
+*.backup.js
+*.backup.html

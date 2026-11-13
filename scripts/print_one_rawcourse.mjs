@@ -1,3 +1,7 @@
+/**
+ * 印出單筆 rawCourse 資料內容。
+ * 用於快速檢視原始資料結構。
+ */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

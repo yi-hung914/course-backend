@@ -1,3 +1,7 @@
+/**
+ * 回填 course.code 欄位：根據 section 內的課程代碼資訊補齊缺漏的 course code。
+ * 用於 course 已建立但缺少 code 時的資料修復腳本。
+ */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

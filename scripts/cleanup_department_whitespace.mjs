@@ -1,3 +1,7 @@
+/**
+ * 清理 department 欄位的前後空白與異常字元。
+ * 避免部門篩選（startsWith）時因空白導致比對失敗。
+ */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

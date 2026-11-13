@@ -1,6 +1,6 @@
 model Course {
   id         String   @id @default(cuid())
-  code   String? @unique // 課號，例如 NU101
+  code   String? // 課號，例如 NU101（【修改】不同學期會有相同課號，改成「課號 + 學期」不能重複，見下方 @@unique）
   name       String
   teacher    String
   credits    Int
@@ -14,19 +14,15 @@ model Course {
   createdAt  DateTime @default(now())
   sections   Section[]
 
+  type      String   @default("elective") // "core" | "elective" | "general"
 
+  // 【新增】學期，例如 "1141" = 114 學年度第 1 學期
+  //   預設 1141：加欄位時，原本已經匯入的課程都是 1141 學期
+  semester  String   @default("1141")
+
+  @@unique([code, semester])
+  @@index([semester])
 }
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-
 model Section {
   id        String   @id @default(cuid())
   courseId  String
@@ -51,12 +47,13 @@ model Section {
 model Schedule {
   id        String   @id @default(cuid())
   sectionId String
-  section   Section  @relation(fields: [sectionId], references: [id], onDelete: Cascade)
-
+  section   Section  @relation(fields: [sectionId], references: [id])
   day       Int
   start     Int
   end       Int
+  location  String?  // ✅ 新增這行（可空）
 }
+
 
 model User {
   id           String         @id @default(cuid())
@@ -67,6 +64,17 @@ model User {
   tokens       RefreshToken[]
   plannerItems PlannerItem[]
 }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+
 
 model RefreshToken {
   id          String   @id @default(cuid())

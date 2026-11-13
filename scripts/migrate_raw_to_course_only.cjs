@@ -1,3 +1,7 @@
+/**
+ * 將 rawCourse 資料轉換為 course 主表資料（僅建立 course）。
+ * 不處理 section 與 schedule。
+ */
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 

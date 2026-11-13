@@ -26,6 +26,31 @@ const prisma = new PrismaClient();
 const PORT = Number(process.env.PORT || 3000);
 
 
+const allowedOrigins = [
+  "http://127.0.0.1:5500",
+  "http://localhost:5500",
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // 允許沒有 origin 的請求（像 curl / Postman）
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error("CORS blocked: " + origin), false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-user-id"],
+}));
+
+// ✅ 確保 preflight 會回應
+app.options(/.*/, cors());
+
+
+
 // 觸發雲端轉換：rawCourse -> course/section/schedule
 app.get("/__version", (req, res) => {
   res.send("backend-version: 2026-01-22-debugdb-A");
@@ -461,6 +486,53 @@ app.post("/api/auth/logout", async (req, res) => {
     console.error(e);
     clearRefreshCookie(res);
     res.status(500).json({ ok: false, message: "SERVER_ERROR" });
+  }
+});
+app.get("/api/courses", async (req, res) => {
+  try {
+    const page = Math.max(1, Number(req.query.page || 1));
+    const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 50)));
+
+    const deptRaw = String(req.query.dept || "").trim();
+    const deptList = deptRaw
+      ? deptRaw.split(",").map(s => s.trim()).filter(Boolean)
+      : [];
+
+    // 【注意】這支路由其實不會被執行：上面的 app.use("/api/courses", courseRoutes) 會先處理 GET /api/courses，
+    //   實際生效的是 course.controller.js 的 listCourses。這裡同步改成精確比對，避免以後有人搞混。
+    const where = {};
+    if (deptList.length > 0) {
+      where.department = { in: deptList };
+    }
+
+    // ✅ DEBUG：你一定要看到這幾行，才表示你改到「正在跑的後端」
+    console.log("[/api/courses] deptRaw =", deptRaw);
+    console.log("[/api/courses] deptList =", deptList);
+    console.log("[/api/courses] where =", JSON.stringify(where));
+
+    const [total, items] = await Promise.all([
+      prisma.course.count({ where }),
+      prisma.course.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { sections: { include: { schedules: true } } },
+      }),
+    ]);
+
+    res.json({
+      ok: true,
+      __apiVersion: "FORCE_TEST_2026-02-21-DEPT-STARTSWITH",
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      items,
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok: false, message: e?.message || "SERVER_ERROR" });
   }
 });
 app.get("/api/admin/debug-counts", requireImportSecret, async (req, res) => {

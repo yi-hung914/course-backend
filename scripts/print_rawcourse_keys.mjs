@@ -1,3 +1,7 @@
+/**
+ * 列出 rawCourse 物件的所有欄位名稱。
+ * 用於欄位對映與除錯。
+ */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

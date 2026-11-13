@@ -5,20 +5,15 @@ import {
   searchCourses,
   getCourseDetail,
   getCourseSchedules,
+  listSemesters,
 } from "./course.controller.js";
 
 const router = Router();
 
-// COURSE-LIST
 router.get("/", listCourses);
-
-// COURSE-SEARCH
 router.get("/search", searchCourses);
-
-// COURSE-DETAIL（含 sections + schedules）
+router.get("/semesters", listSemesters);   // 【新增】學期清單（一定要放在 "/:id" 前面，不然會被當成課程 id）
 router.get("/:id", getCourseDetail);
-
-// 保留你原本那條（更乾淨統一）
 router.get("/:id/schedules", getCourseSchedules);
 
 export default router;

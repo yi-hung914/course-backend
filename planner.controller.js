@@ -292,3 +292,79 @@ return res.status(409).json({
     });
   }
 }
+
+
+// =====================================================================
+// 【新增】整份課表的儲存 / 讀取
+//   前端「儲存課表」是把目前整份課表存起來（不是一門一門加），
+//   所以用「整份覆蓋」的方式：先刪掉這個使用者舊的，再存新的。
+//   身分一樣沿用 x-user-id（跟上面的 addPlannerItem 相同做法）。
+// =====================================================================
+
+// PUT /api/planner   body: { courseIds: ["...", "..."] }
+export async function savePlanner(req, res) {
+  try {
+    const userId = req.header("x-user-id");
+    if (!userId) {
+      return res.status(401).json({ ok: false, message: "缺少 x-user-id，請重新登入" });
+    }
+
+    const raw = req.body?.courseIds;
+    if (!Array.isArray(raw)) {
+      return res.status(400).json({ ok: false, message: "courseIds 必須是陣列" });
+    }
+    const courseIds = [...new Set(raw.map(String).filter(Boolean))];
+
+    // 只存資料庫裡真的存在的課程，避免存到錯的 id
+    const existing = await prisma.course.findMany({
+      where: { id: { in: courseIds } },
+      select: { id: true },
+    });
+    const validIds = existing.map(c => c.id);
+
+    await prisma.$transaction([
+      prisma.planner.deleteMany({ where: { userId } }),
+      prisma.planner.createMany({
+        data: validIds.map(courseId => ({ userId, courseId })),
+        skipDuplicates: true,
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      saved: validIds.length,
+      skipped: courseIds.length - validIds.length,   // 找不到的課程數
+    });
+  } catch (err) {
+    console.error("savePlanner ERROR =", err);
+    return res.status(500).json({ ok: false, message: "伺服器錯誤，儲存失敗" });
+  }
+}
+
+// GET /api/planner   回傳這個使用者存過的課程（含班別和上課時間，前端可直接畫課表）
+export async function getPlanner(req, res) {
+  try {
+    const userId = req.header("x-user-id");
+    if (!userId) {
+      return res.status(401).json({ ok: false, message: "缺少 x-user-id，請重新登入" });
+    }
+
+    const rows = await prisma.planner.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: { courseId: true },
+    });
+
+    const courses = rows.length
+      ? await prisma.course.findMany({
+          where: { id: { in: rows.map(r => r.courseId) } },
+          include: { sections: { include: { schedules: true } } },
+        })
+      : [];
+
+    return res.json({ ok: true, items: courses });
+  } catch (err) {
+    console.error("getPlanner ERROR =", err);
+    return res.status(500).json({ ok: false, message: "伺服器錯誤，讀取課表失敗" });
+  }
+}

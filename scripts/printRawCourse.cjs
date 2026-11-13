@@ -1,4 +1,8 @@
-﻿const { PrismaClient } = require("@prisma/client");
+﻿/**
+ * 以 CJS 版本印出 rawCourse 資料。
+ * 舊版或 CommonJS 環境使用。
+ */
+const { PrismaClient } = require("@prisma/client");
 
 const p = new PrismaClient();
 

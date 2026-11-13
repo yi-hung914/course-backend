@@ -1,4 +1,8 @@
-// scripts/migrate_raw_to_sections.cjs
+/** scripts/migrate_raw_to_sections.cjs
+
+ * 將 rawCourse 轉換為   結構。
+ * 建立課程班別與上課時間資料。
+ */
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 
@@ -50,7 +54,7 @@ async function main() {
   const total = await prisma.rawCourse.count();
   console.log("RawCourse total =", total);
 
-  const pageSize = 200;
+  const pageSize = 10000;
   for (let skip = 0; skip < total; skip += pageSize) {
     const raws = await prisma.rawCourse.findMany({
       skip,
@@ -127,6 +131,7 @@ async function main() {
             day,
             start,
             end,
+            location: row["上課地點"] ? String(row["上課地點"]).trim() : null,
           },
         });
       }

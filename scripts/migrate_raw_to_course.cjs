@@ -1,3 +1,7 @@
+/**
+ * 將 rawCourse 正式轉換為 course 主資料。
+ * 包含資料清洗、去重與標準化處理。
+ */
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 

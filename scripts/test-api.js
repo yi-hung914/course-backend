@@ -1,6 +1,6 @@
 /**
- * Course Backend API - Integration Test
- * Run: node test-api.js
+ * 測試後端 API 是否正常回應。
+ * 用於快速檢查服務健康狀態。
  */
 
 const BASE = "https://course-backend-api-pfyj.onrender.com";

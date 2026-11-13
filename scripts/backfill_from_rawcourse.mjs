@@ -1,3 +1,7 @@
+/**
+ * 從 rawCourse 暫存資料回填正式表（course/section/schedule）的缺漏欄位。
+ * 用於 migrate 後發現資料不完整時的修復工具。
+ */
 import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();

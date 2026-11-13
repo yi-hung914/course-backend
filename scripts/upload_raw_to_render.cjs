@@ -1,3 +1,8 @@
+/*
+將 raw 課程資料上傳至 Render 部署的後端服務。
+用於雲端資料庫批次匯入。
+(已作廢)
+ */
 const fs = require("fs");
 const path = require("path");
 

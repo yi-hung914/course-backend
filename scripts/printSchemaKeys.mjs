@@ -1,3 +1,6 @@
+/*
+確認 DB 實際存了哪些欄位
+ */
 import { PrismaClient } from "@prisma/client";
 const p = new PrismaClient();
 

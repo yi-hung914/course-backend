@@ -1,4 +1,7 @@
-// scripts/test-auth-flow.js
+/**
+ * 測試完整登入流程（register/login/refresh/logout）。
+ * 驗證 JWT 與 refresh token 機制是否正常。
+ */
 const axios = require("axios");
 const { wrapper } = require("axios-cookiejar-support");
 const tough = require("tough-cookie");

@@ -20,6 +20,8 @@ import crypto from "crypto";
 import express from "express";
 import plannerRoutes from "./planner.routes.js";
 import sectionRoutes from "./section.routes.js";
+// 【新增】課程管理者後台、個人帳號（修改密碼）
+import { createAdminRouter, createAccountRouter, ensureAdminSetup } from "./admin.routes.js";
 
 const app = express();
 const prisma = new PrismaClient();
@@ -82,7 +84,7 @@ app.use(
 /* =======================
    Middlewares
 ======================= */
-app.use(express.json());
+app.use(express.json({ limit: "20mb" }));   // 【修改】管理者匯入 Excel 會比較大，放寬到 20MB
 app.use(cookieParser());
 app.use("/api/courses", courseRoutes);
 app.use("/api/sections", sectionRoutes);
@@ -392,7 +394,12 @@ app.post("/api/auth/login", async (req, res) => {
     });
 
     setRefreshCookie(res, refreshToken);
-    res.json({ ok: true, accessToken });
+    // 【修改】一起回傳使用者資料與角色（student / admin），管理者後台用來判斷權限
+    res.json({
+      ok: true,
+      accessToken,
+      user: { id: user.id, email: user.email, username: user.username, role: user.role || "student" },
+    });
   } catch (e) {
     console.error(e);
     res.status(500).json({ ok: false, message: "SERVER_ERROR" });
@@ -581,11 +588,20 @@ app.get("/api/planner", requireAuth, async (req, res) => {
 });
 
 /* =======================
+   【新增】課程管理者後台、個人帳號
+======================= */
+app.use("/api/auth", createAccountRouter({ prisma, bcrypt }));
+app.use("/api/admin", createAdminRouter({ prisma, bcrypt }));
+
+/* =======================
    Start / Shutdown
 ======================= */
 const server = app.listen(PORT, () => {
   console.log(`Server running on http://localhost:${PORT}`);
 });
+
+// 【新增】啟動時確保 User 有 role 欄位，並依 ADMIN_EMAIL / ADMIN_PASSWORD 建立管理者
+ensureAdminSetup({ prisma, bcrypt }).catch(e => console.error("[admin] 初始化失敗：", e?.message || e));
 
 process.on("SIGINT", async () => {
   await prisma.$disconnect();

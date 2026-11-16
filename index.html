@@ -625,6 +625,32 @@
         .close-modal:hover {
             color: #333;
         }
+
+        /* 【新增】修改密碼 */
+        .pw-modal-content { max-width: 400px; }
+        .pw-modal-content h3 { color: #007d66; margin-bottom: 15px; }
+        .pw-modal-content input {
+            width: 100%;
+            padding: 10px 12px;
+            margin: 6px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1em;
+        }
+        .pw-modal-content .pw-msg { min-height: 1.4em; color: #c0392b; font-size: .9em; margin-top: 4px; }
+        .change-pw-btn {
+            padding: 6px 12px;
+            background: white;
+            color: #007d66;
+            border: 1px solid #007d66;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.9em;
+        }
+        .change-pw-btn:hover { background: #f0f9f6; }
+        .admin-entry { margin-top: 10px; font-size: .85em; }
+        .admin-entry a { color: #888; text-decoration: none; }
+        .admin-entry a:hover { color: #007d66; text-decoration: underline; }
         
         /* 檢查衝堂相關樣式 */
         .conflict-warning {
@@ -818,6 +844,8 @@
                 <span id="auth-switch-text">還沒有帳號？</span>
                 <a href="javascript:void(0)" id="auth-switch-link" onclick="toggleAuthMode()">註冊新帳號</a>
             </p>
+            <!-- 【新增】課程管理者後台入口 -->
+            <p class="admin-entry"><a href="./admin.html">課程管理者登入 →</a></p>
         </div>
     </div>
 
@@ -837,6 +865,7 @@
                     
                     <div class="user-info">
                         <span class="user-id">學號: <span id="display-user-id"></span></span>
+                        <button class="change-pw-btn" onclick="openPasswordModal()">修改密碼</button>   <!-- 【新增】 -->
                         <button class="logout-btn" onclick="handleLogout()">登出</button>
                     </div>
                 </div>
@@ -1057,6 +1086,19 @@
                 <span class="close-modal" onclick="closeCourseDetail()">&times;</span>
                 <h3 id="modal-course-title"></h3>
                 <div id="modal-course-details"></div>
+            </div>
+        </div>
+
+        <!-- 【新增】修改密碼彈窗 -->
+        <div id="password-modal" class="modal">
+            <div class="modal-content pw-modal-content">
+                <span class="close-modal" onclick="closePasswordModal()">&times;</span>
+                <h3>修改密碼</h3>
+                <input type="password" id="pw-old" placeholder="目前的密碼" autocomplete="current-password">
+                <input type="password" id="pw-new" placeholder="新密碼（至少 6 個字）" autocomplete="new-password">
+                <input type="password" id="pw-new2" placeholder="再輸入一次新密碼" autocomplete="new-password">
+                <div class="pw-msg" id="pw-msg"></div>
+                <button class="login-btn" id="pw-submit" onclick="submitPasswordChange()">更新密碼</button>
             </div>
         </div>
     </div>
@@ -1610,6 +1652,50 @@ function resetToFirstPageAndReload() {
                 return null;
             }
         }
+
+        // 【新增】修改密碼
+        function openPasswordModal() {
+            ["pw-old", "pw-new", "pw-new2"].forEach(id => document.getElementById(id).value = "");
+            document.getElementById("pw-msg").textContent = "";
+            document.getElementById("password-modal").style.display = "flex";
+            document.getElementById("pw-old").focus();
+        }
+
+        function closePasswordModal() {
+            document.getElementById("password-modal").style.display = "none";
+        }
+
+        async function submitPasswordChange() {
+            const oldPassword = document.getElementById("pw-old").value;
+            const newPassword = document.getElementById("pw-new").value;
+            const again = document.getElementById("pw-new2").value;
+            const msg = document.getElementById("pw-msg");
+            if (!oldPassword) { msg.textContent = "請輸入目前的密碼"; return; }
+            if (newPassword.length < 6) { msg.textContent = "新密碼至少要 6 個字"; return; }
+            if (newPassword !== again) { msg.textContent = "兩次輸入的新密碼不一樣"; return; }
+
+            const btn = document.getElementById("pw-submit");
+            btn.disabled = true;
+            btn.textContent = "更新中...";
+            msg.textContent = "";
+            try {
+                await apiFetch("/api/auth/password", { method: "PUT", body: { oldPassword, newPassword } });
+                closePasswordModal();
+                alert("密碼已更新，下次登入請使用新密碼");
+            } catch (e) {
+                msg.textContent = /ACCESS_INVALID|請先登入|已過期/.test(e.message)
+                    ? "登入已過期，請登出後重新登入再修改"
+                    : e.message;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "更新密碼";
+            }
+        }
+
+        ["pw-old", "pw-new", "pw-new2"].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.addEventListener("keydown", e => { if (e.key === "Enter") submitPasswordChange(); });
+        });
 
         function handleLogout() {
             document.getElementById('username').value = "";

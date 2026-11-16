@@ -60,6 +60,7 @@ model User {
   email        String         @unique
   username     String?
   passwordHash String
+  role         String         @default("student") // 【新增】"student" 學生 | "admin" 課程管理者
   createdAt    DateTime       @default(now())
   tokens       RefreshToken[]
   plannerItems PlannerItem[]

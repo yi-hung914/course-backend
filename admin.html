@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>課程管理者後台｜NTUNHS 課程規劃助手</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Microsoft JhengHei", "PingFang TC", sans-serif; line-height: 1.6; background: #f5f5f5; color: #333; }
+        button, input, select { font-family: inherit; font-size: 1em; }
+
+        /* ===== 登入 ===== */
+        #login-overlay {
+            position: fixed; inset: 0; z-index: 3000;
+            background: linear-gradient(135deg, #005a4a 0%, #007d66 60%, #00a896 100%);
+            display: flex; justify-content: center; align-items: center; padding: 20px;
+        }
+        .login-card { background: white; padding: 40px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.2); width: 100%; max-width: 400px; text-align: center; }
+        .login-card h1 { color: #007d66; font-size: 1.5em; margin-bottom: 4px; }
+        .login-card .badge-admin { display: inline-block; background: #fff4e0; color: #b35c00; border: 1px solid #ffd59a; border-radius: 999px; padding: 2px 12px; font-size: .85em; margin-bottom: 14px; }
+        .login-card input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 6px; }
+        .login-msg { min-height: 1.4em; color: #c0392b; font-size: .9em; margin-top: 6px; }
+        .login-card .back-link { display: block; margin-top: 16px; font-size: .9em; color: #007d66; text-decoration: none; }
+
+        /* ===== 按鈕 ===== */
+        .btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; background: #007d66; color: white; }
+        .btn:hover { background: #005a4a; }
+        .btn:disabled { opacity: .6; cursor: wait; }
+        .btn.full { width: 100%; padding: 12px; margin-top: 12px; }
+        .btn.light { background: #eef7f5; color: #007d66; }
+        .btn.light:hover { background: #d9efea; }
+        .btn.gray { background: #888; }
+        .btn.gray:hover { background: #666; }
+        .btn.danger { background: #e74c3c; }
+        .btn.danger:hover { background: #c0392b; }
+        .btn.small { padding: 4px 10px; font-size: .85em; font-weight: normal; }
+        .link-btn { background: none; border: none; color: #007d66; cursor: pointer; text-decoration: underline; padding: 0 4px; }
+
+        /* ===== 導覽列 ===== */
+        .navbar { background: white; box-shadow: 0 2px 10px rgba(0,0,0,.1); position: sticky; top: 0; z-index: 1000; padding: 0 20px; }
+        .nav-container { max-width: 1240px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 12px 0; gap: 12px; flex-wrap: wrap; }
+        .logo h1 { color: #007d66; font-size: 1.3em; }
+        .logo small { color: #b35c00; background: #fff4e0; border-radius: 999px; padding: 1px 10px; margin-left: 8px; font-size: .7em; vertical-align: middle; }
+        .nav-links { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .nav-link { padding: 8px 14px; border-radius: 4px; cursor: pointer; color: #333; text-decoration: none; }
+        .nav-link:hover { background: #f0f9f6; color: #007d66; }
+        .nav-link.active { background: #007d66; color: white; }
+        .user-info { display: flex; align-items: center; gap: 10px; margin-left: 10px; color: #666; font-size: .9em; }
+
+        /* ===== 版面 ===== */
+        .main-content { max-width: 1240px; margin: 0 auto; padding: 20px; }
+        .section { display: none; }
+        .section.active { display: block; }
+        .card { background: white; padding: 24px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,.08); border-left: 4px solid #007d66; }
+        .card h2 { color: #007d66; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 2px solid #f0f0f0; font-size: 1.25em; }
+        .hint { color: #777; font-size: .9em; margin-bottom: 14px; }
+        .toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+        .toolbar input[type=text], .toolbar select { padding: 9px 12px; border: 2px solid #ddd; border-radius: 8px; background: white; }
+        .toolbar input[type=text] { flex: 1; min-width: 220px; }
+        .toolbar input:focus, .toolbar select:focus { outline: none; border-color: #007d66; }
+        .toolbar .spacer { flex: 1; }
+        .count-text { color: #666; font-size: .9em; margin-bottom: 8px; }
+
+        /* ===== 表格 ===== */
+        .table-wrap { overflow-x: auto; }
+        table.data { width: 100%; border-collapse: collapse; font-size: .92em; }
+        table.data th { background: #f0f9f6; color: #005a4a; text-align: left; padding: 10px 8px; border-bottom: 2px solid #cfe9e3; white-space: nowrap; }
+        table.data td { padding: 9px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+        table.data tr:hover td { background: #fafdfc; }
+        td.code { font-family: Consolas, monospace; font-size: .9em; color: #555; }
+        td.actions { white-space: nowrap; }
+        td.actions .btn { margin-right: 4px; }
+        .empty-row td { text-align: center; color: #999; padding: 30px; }
+        .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: .85em; white-space: nowrap; }
+        .tag.core { background: #e8f5e9; color: #2e7d32; }
+        .tag.elective { background: #e3f2fd; color: #1565c0; }
+        .tag.general { background: #fff3e0; color: #e65100; }
+        .tag.admin { background: #fff4e0; color: #b35c00; border: 1px solid #ffd59a; }
+        .tag.student { background: #eef2f7; color: #4a5a70; }
+        .tag.me { background: #007d66; color: white; margin-left: 4px; }
+        .pagination { display: flex; gap: 6px; justify-content: center; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+        .pagination button { padding: 5px 11px; border: 1px solid #ddd; background: white; border-radius: 4px; cursor: pointer; }
+        .pagination button.active { background: #007d66; color: white; border-color: #007d66; }
+        .pagination button:disabled { opacity: .5; cursor: default; }
+
+        /* ===== 對話框 ===== */
+        .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 2000; display: none; justify-content: center; align-items: flex-start; padding: 40px 16px; overflow-y: auto; }
+        .modal-bg.show { display: flex; }
+        .modal { background: white; border-radius: 12px; width: 100%; max-width: 760px; box-shadow: 0 10px 40px rgba(0,0,0,.3); }
+        .modal.narrow { max-width: 440px; }
+        .modal-head { padding: 16px 22px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .modal-head h3 { color: #007d66; }
+        .modal-close { background: none; border: none; font-size: 1.5em; cursor: pointer; color: #999; line-height: 1; }
+        .modal-body { padding: 18px 22px; }
+        .modal-foot { padding: 14px 22px; border-top: 1px solid #eee; display: flex; justify-content: flex-end; gap: 10px; align-items: center; }
+        .modal-foot .form-error { margin-right: auto; color: #c0392b; font-size: .9em; }
+        .form-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px 14px; }
+        .form-grid .span2 { grid-column: span 2; }
+        .form-grid .span3 { grid-column: span 3; }
+        .field label { display: block; font-size: .85em; color: #555; margin-bottom: 3px; font-weight: bold; }
+        .field label .req { color: #e74c3c; }
+        .field input, .field select { width: 100%; padding: 8px 10px; border: 1px solid #ccc; border-radius: 6px; background: white; }
+        .field input:focus, .field select:focus { outline: none; border-color: #007d66; box-shadow: 0 0 0 2px #d9efea; }
+        .field .sub { font-size: .8em; color: #888; margin-top: 2px; }
+        .sections-head { display: flex; justify-content: space-between; align-items: center; margin: 18px 0 8px; }
+        .sections-head h4 { color: #005a4a; }
+        .section-box { border: 1px solid #d9efea; background: #fafdfc; border-radius: 8px; padding: 12px; margin-bottom: 10px; }
+        .section-row { display: grid; grid-template-columns: 1fr 1fr 2fr auto; gap: 10px; align-items: end; }
+        .slot-list { margin-top: 10px; }
+        .slot-row { display: flex; gap: 8px; align-items: center; margin-bottom: 6px; flex-wrap: wrap; font-size: .92em; }
+        .slot-row select, .slot-row input { padding: 5px 8px; border: 1px solid #ccc; border-radius: 5px; background: white; }
+        .slot-row input { width: 130px; }
+
+        /* ===== 匯入 ===== */
+        .drop-zone { border: 2px dashed #9fd3c7; border-radius: 10px; padding: 28px; text-align: center; background: #f7fcfb; cursor: pointer; }
+        .drop-zone:hover, .drop-zone.drag { background: #eaf7f3; border-color: #007d66; }
+        .drop-zone .file-name { margin-top: 8px; color: #007d66; font-weight: bold; }
+        .preview-box { margin-top: 16px; border: 1px solid #cfe9e3; border-radius: 8px; padding: 16px; background: #fbfefd; display: none; }
+        .stats { display: flex; gap: 12px; flex-wrap: wrap; margin: 10px 0 14px; }
+        .stat { background: white; border: 1px solid #e3efec; border-radius: 8px; padding: 8px 14px; min-width: 110px; }
+        .stat b { display: block; font-size: 1.4em; color: #007d66; }
+        .stat span { font-size: .85em; color: #666; }
+        .warn { background: #fff8e6; border: 1px solid #ffe0a3; color: #8a5a00; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: .92em; }
+        .ok-box { background: #e8f5e9; border: 1px solid #b7dfb9; color: #1b5e20; border-radius: 8px; padding: 10px 14px; margin-top: 12px; display: none; }
+
+        /* ===== 個人帳號 ===== */
+        .profile-table td { padding: 6px 14px 6px 0; }
+        .profile-table td:first-child { color: #777; }
+        .pw-form { max-width: 380px; }
+        .pw-form .field { margin-bottom: 10px; }
+
+        /* ===== 提示訊息 ===== */
+        #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 8px; z-index: 4000; display: none; box-shadow: 0 4px 14px rgba(0,0,0,.25); }
+        #toast.error { background: #c0392b; }
+        #toast.success { background: #007d66; }
+
+        @media (max-width: 760px) {
+            .form-grid { grid-template-columns: 1fr 1fr; }
+            .form-grid .span3 { grid-column: span 2; }
+            .section-row { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ========== 登入 ========== -->
+<div id="login-overlay">
+    <div class="login-card">
+        <h1>NTUNHS 課程規劃助手</h1>
+        <div class="badge-admin">課程管理者後台</div>
+        <p id="login-subtitle" style="color:#666;font-size:.95em;">請輸入管理者帳號與密碼</p>
+        <input type="text" id="login-email" placeholder="管理者帳號" autocomplete="username">
+        <input type="password" id="login-password" placeholder="密碼" autocomplete="current-password">
+        <button class="btn full" id="login-btn" onclick="handleLogin()">登入後台</button>
+        <div class="login-msg" id="login-msg"></div>
+        <a class="back-link" href="./index.html">← 回學生課程規劃頁面</a>
+    </div>
+</div>
+
+<!-- ========== 後台主畫面 ========== -->
+<div id="app" style="display:none;">
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="logo"><h1>NTUNHS 課程規劃助手<small>管理者後台</small></h1></div>
+            <div class="nav-links">
+                <a class="nav-link active" data-sec="sec-courses" onclick="switchSection('sec-courses')">課程管理</a>
+                <a class="nav-link" data-sec="sec-import" onclick="switchSection('sec-import')">匯入課程</a>
+                <a class="nav-link" data-sec="sec-users" onclick="switchSection('sec-users')">帳號管理</a>
+                <a class="nav-link" data-sec="sec-profile" onclick="switchSection('sec-profile')">個人帳號</a>
+                <div class="user-info">
+                    <span>管理者：<b id="me-name"></b></span>
+                    <a class="nav-link" href="./index.html" target="_blank" title="開啟學生頁面">學生頁面 ↗</a>
+                    <button class="btn gray small" onclick="handleLogout()">登出</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="main-content">
+
+        <!-- ===== 課程管理 ===== -->
+        <div class="section active" id="sec-courses">
+            <div class="card">
+                <h2>課程管理</h2>
+                <p class="hint">查詢、新增、修改、刪除課程。修改後學生頁面會立即顯示新的資料。</p>
+                <div class="toolbar">
+                    <select id="course-semester" onchange="loadCourses(1)" title="學期"></select>
+                    <input type="text" id="course-q" placeholder="輸入課程名稱、代碼、教師或系所代碼查詢">
+                    <button class="btn" onclick="openCourseModal()">＋ 新增課程</button>
+                </div>
+                <div class="count-text" id="course-count"></div>
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead><tr>
+                            <th>課程代碼</th><th>課程名稱</th><th>授課教師</th><th>學分</th><th>類別</th>
+                            <th>開課系所</th><th>年級</th><th>班別／上課時間</th><th>操作</th>
+                        </tr></thead>
+                        <tbody id="course-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="course-pager"></div>
+            </div>
+        </div>
+
+        <!-- ===== 匯入課程 ===== -->
+        <div class="section" id="sec-import">
+            <div class="card">
+                <h2>匯入課程查詢系統資料</h2>
+                <p class="hint">選擇學校「課程查詢系統」匯出的 Excel 檔（.xls 或 .xlsx）。系統會先顯示預覽，確認後才會寫入。</p>
+                <div class="drop-zone" id="drop-zone" onclick="document.getElementById('import-file').click()">
+                    <div style="font-size:2em;">📄</div>
+                    <div>點這裡選擇檔案，或把檔案拖曳到這裡</div>
+                    <div class="file-name" id="import-file-name"></div>
+                </div>
+                <input type="file" id="import-file" accept=".xls,.xlsx" style="display:none;">
+                <div class="toolbar" style="margin-top:14px;">
+                    <label for="import-semester" style="color:#555;">匯入到學期：</label>
+                    <select id="import-semester"></select>
+                    <button class="btn" id="preview-btn" onclick="previewImport()" disabled>預覽</button>
+                </div>
+
+                <div class="preview-box" id="preview-box">
+                    <h3 style="color:#005a4a;">預覽：<span id="pv-title"></span></h3>
+                    <div class="stats" id="pv-stats"></div>
+                    <div id="pv-warn"></div>
+                    <div class="table-wrap">
+                        <table class="data">
+                            <thead><tr><th>課程代碼</th><th>課程名稱</th><th>授課教師</th><th>學分</th><th>類別</th></tr></thead>
+                            <tbody id="pv-sample"></tbody>
+                        </table>
+                    </div>
+                    <div style="margin-top:14px; display:flex; gap:10px;">
+                        <button class="btn" id="import-btn" onclick="confirmImport()">確認匯入</button>
+                        <button class="btn light" onclick="resetImport()">取消</button>
+                    </div>
+                </div>
+                <div class="ok-box" id="import-result"></div>
+            </div>
+        </div>
+
+        <!-- ===== 帳號管理 ===== -->
+        <div class="section" id="sec-users">
+            <div class="card">
+                <h2>帳號管理</h2>
+                <p class="hint">管理所有使用者帳號：新增、修改學號與名稱、設定角色、重設密碼、刪除帳號。</p>
+                <div class="toolbar">
+                    <input type="text" id="user-q" placeholder="輸入學號或名稱查詢">
+                    <select id="user-role" onchange="loadUsers(1)">
+                        <option value="">全部角色</option>
+                        <option value="student">學生</option>
+                        <option value="admin">課程管理者</option>
+                    </select>
+                    <button class="btn" onclick="openUserModal()">＋ 新增帳號</button>
+                </div>
+                <div class="count-text" id="user-count"></div>
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead><tr><th>帳號（學號）</th><th>名稱</th><th>角色</th><th>課表課程數</th><th>建立時間</th><th>操作</th></tr></thead>
+                        <tbody id="user-tbody"></tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="user-pager"></div>
+            </div>
+        </div>
+
+        <!-- ===== 個人帳號 ===== -->
+        <div class="section" id="sec-profile">
+            <div class="card">
+                <h2>個人帳號</h2>
+                <table class="profile-table">
+                    <tr><td>帳號</td><td id="pf-email"></td></tr>
+                    <tr><td>名稱</td><td id="pf-name"></td></tr>
+                    <tr><td>角色</td><td><span class="tag admin">課程管理者</span></td></tr>
+                    <tr><td>建立時間</td><td id="pf-created"></td></tr>
+                </table>
+            </div>
+            <div class="card">
+                <h2>修改密碼</h2>
+                <div class="pw-form">
+                    <div class="field"><label>目前的密碼</label><input type="password" id="pw-old" autocomplete="current-password"></div>
+                    <div class="field"><label>新密碼（至少 6 個字）</label><input type="password" id="pw-new" autocomplete="new-password"></div>
+                    <div class="field"><label>再輸入一次新密碼</label><input type="password" id="pw-new2" autocomplete="new-password"></div>
+                    <button class="btn" id="pw-btn" onclick="changeMyPassword()">更新密碼</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 課程編輯 ========== -->
+<div class="modal-bg" id="course-modal">
+    <div class="modal">
+        <div class="modal-head"><h3 id="course-modal-title">新增課程</h3><button class="modal-close" onclick="closeModal('course-modal')">×</button></div>
+        <div class="modal-body">
+            <div class="form-grid">
+                <div class="field"><label>學期 <span class="req">*</span></label><input type="text" id="f-semester" maxlength="4" placeholder="例如 1151"><div class="sub" id="f-semester-label"></div></div>
+                <div class="field"><label>課程代碼 <span class="req">*</span></label><input type="text" id="f-code"></div>
+                <div class="field"><label>學分數 <span class="req">*</span></label><input type="number" id="f-credits" min="0" max="20" value="3"></div>
+                <div class="field span2"><label>課程名稱 <span class="req">*</span></label><input type="text" id="f-name"></div>
+                <div class="field"><label>授課教師</label><input type="text" id="f-teacher"></div>
+                <div class="field"><label>課程類別 <span class="req">*</span></label>
+                    <select id="f-kind">
+                        <option value="core|true">專業必修</option>
+                        <option value="elective|false">專業選修</option>
+                        <option value="general|true">通識必修</option>
+                        <option value="general|false">通識選修</option>
+                    </select>
+                </div>
+                <div class="field"><label>開課系所代碼</label><input type="text" id="f-dept" list="dept-list" placeholder="例如 22140"><div class="sub" id="f-dept-label"></div></div>
+                <div class="field"><label>年級</label>
+                    <select id="f-grade"><option value="">不限</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option></select>
+                </div>
+            </div>
+            <datalist id="dept-list"></datalist>
+
+            <div class="sections-head">
+                <h4>開課班別與上課時間</h4>
+                <button class="btn light small" onclick="addSectionBox()">＋ 新增班別</button>
+            </div>
+            <div id="sections-container"></div>
+        </div>
+        <div class="modal-foot">
+            <span class="form-error" id="course-form-error"></span>
+            <button class="btn light" onclick="closeModal('course-modal')">取消</button>
+            <button class="btn" id="course-save-btn" onclick="saveCourse()">儲存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 帳號編輯 ========== -->
+<div class="modal-bg" id="user-modal">
+    <div class="modal narrow">
+        <div class="modal-head"><h3 id="user-modal-title">新增帳號</h3><button class="modal-close" onclick="closeModal('user-modal')">×</button></div>
+        <div class="modal-body">
+            <div class="field" style="margin-bottom:10px;"><label>帳號（學號） <span class="req">*</span></label><input type="text" id="u-email"></div>
+            <div class="field" style="margin-bottom:10px;"><label>名稱</label><input type="text" id="u-name" placeholder="不填就用學號"></div>
+            <div class="field" style="margin-bottom:10px;"><label>角色</label>
+                <select id="u-role"><option value="student">學生</option><option value="admin">課程管理者</option></select>
+            </div>
+            <div class="field" id="u-password-field"><label>密碼（至少 6 個字） <span class="req">*</span></label><input type="password" id="u-password" autocomplete="new-password"></div>
+        </div>
+        <div class="modal-foot">
+            <span class="form-error" id="user-form-error"></span>
+            <button class="btn light" onclick="closeModal('user-modal')">取消</button>
+            <button class="btn" id="user-save-btn" onclick="saveUser()">儲存</button>
+        </div>
+    </div>
+</div>
+
+<!-- ========== 重設密碼 ========== -->
+<div class="modal-bg" id="reset-modal">
+    <div class="modal narrow">
+        <div class="modal-head"><h3>重設密碼</h3><button class="modal-close" onclick="closeModal('reset-modal')">×</button></div>
+        <div class="modal-body">
+            <p style="margin-bottom:10px;">帳號：<b id="reset-email"></b></p>
+            <div class="field"><label>新密碼（至少 6 個字）</label><input type="password" id="reset-password" autocomplete="new-password"></div>
+            <p class="hint" style="margin-top:8px;">重設後，這個帳號在其他裝置的登入會失效。</p>
+        </div>
+        <div class="modal-foot">
+            <span class="form-error" id="reset-form-error"></span>
+            <button class="btn light" onclick="closeModal('reset-modal')">取消</button>
+            <button class="btn" id="reset-save-btn" onclick="doResetPassword()">重設密碼</button>
+        </div>
+    </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    /* =========================================================
+       設定（跟學生頁面 index.html 相同的後端網址）
+    ========================================================= */
+    const CLOUD_API_BASE = "https://ntunhs-course-planner.onrender.com";
+    const IS_LOCAL_PAGE = ["localhost", "127.0.0.1", ""].includes(location.hostname);
+    const API_BASE = (IS_LOCAL_PAGE || !CLOUD_API_BASE) ? "http://localhost:3000" : CLOUD_API_BASE;
+
+    // 系所代碼對照表（與學生頁面 index.html 相同）
+    const DEPT_MAP = {
+        "11169": "護理系中西醫結合護理碩士班",
+        "43160": "人工智慧與健康大數據研究所",
+        "13140": "四年制高齡健康照護系",
+        "1C120": "二年制護理助產及婦女健康系",
+        "1D120": "二年制醫護教育暨數位學習系",
+        "21120": "二年制健康事業管理系",   // 【修正】代碼第 4 碼 2 = 二技，原本誤標四年制
+        "22140": "四年制資訊管理系",
+        "23140": "四年制休閒產業與健康促進系",
+        "24120": "二年制長期照護系",
+        "25140": "四年制語言治療與聽力學系",
+        "31120": "二年制嬰幼兒保育系",
+        "32140": "四年制運動保健系",
+        "33140": "四年制生死與健康心理諮商系",
+        "41140": "高齡與運動健康暨嬰幼兒保育技優專班",
+        "42140": "智慧健康科技技優專班",
+        "11230": "進修部護理系(日間班)",
+        "11330": "進修部護理系(夜間班)",
+        "11860": "國際護理碩士班",
+        "11170": "護理系博士班",
+        "11870": "國際護理博士班",
+        "11190": "護理系學士後學士班(學士後護理系)",
+        "11468": "護理系碩士在職專班護專成人專科組",
+        "30860": "國際運動科學外國學生專班",
+        "33161": "生死與健康心理諮商系碩士班生死學組",
+        "23160": "休閒產業與健康促進系旅遊健康碩士班",
+        "23460": "休閒產業與健康促進系碩士在職專班",
+        "24160": "長期照護系碩士班",
+        "13160": "高齡健康照護系碩士班",
+        "21160": "健康事業管理系碩士班",
+        "21460": "健康事業管理系碩士在職專班",
+        "20160": "健康科技學院碩士班",
+        "22160": "資訊管理系碩士班",
+        "32160": "運動保健系碩士班",
+        "32460": "運動保健系碩士在職專班",
+        "25161": "語言治療與聽力學系碩士班語言治療組",
+        "31160": "嬰幼兒保育系碩士班",
+        "1D160": "醫護教育暨數位學習系碩士班",
+        "1C160": "護理助產及婦女健康系護理助產碩士班",
+        "11164": "護理系碩士班護研精神組",
+        "11162": "護理系碩士班護研老人組",
+        "11163": "護理系碩士班護研婦女組",
+        "11166": "護理系碩士班護研兒童組",
+        "11165": "護理系碩士班護研社區組",
+        "11168": "護理系碩士班護研成人專科組",
+        "11167": "護理系碩士班護研資訊組",
+        "11161": "護理系碩士班護研成人組",
+        "11467": "護理系碩士在職專班護專資訊組",
+        "11462": "護理系碩士在職專班護專老人組",
+        "11466": "護理系碩士在職專班護專兒童組",
+        "11465": "護理系碩士在職專班護專社區組",
+        "11464": "護理系碩士在職專班護專精神組",
+        "11461": "護理系碩士在職專班護專成人組",
+        "11463": "護理系碩士在職專班護專婦女組",
+        "11140": "四年制護理系",
+        "11120": "二年制護理系",
+        "1D110": "二專醫護教育暨數位學習科",
+        "31140": "四年制嬰幼兒保育系",   // 【新增】資料庫有 55 門課，原本對照表沒有
+        "31180": "嬰幼兒保育系學士後教保學位學程",
+        "21140": "四年制健康事業管理系",
+        "21330": "二年制進修部健康事業管理系"
+    };
+
+    const DAY_NAMES = ["", "一", "二", "三", "四", "五", "六", "日"];
+    const TYPE_LABEL = { "core|true": "專業必修", "elective|false": "專業選修", "general|true": "通識必修", "general|false": "通識選修", "general|null": "通識" };
+
+    let token = localStorage.getItem("adminAccessToken") || "";
+    let me = null;
+    let courseState = { page: 1, totalPages: 1 };
+    let userState = { page: 1, totalPages: 1 };
+    let editingCourseId = null;
+    let editingUserId = null;
+    let resetUserId = null;
+    let importFile = null;
+    let semesterItems = [];
+
+    /* ========== 共用 ========== */
+    function escapeHtml(s) {
+        return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+    function toast(msg, type = "") {
+        const el = document.getElementById("toast");
+        el.textContent = msg;
+        el.className = type;
+        el.style.display = "block";
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => el.style.display = "none", 3000);
+    }
+    function semesterLabel(s) {
+        return /^\d{4}$/.test(s) ? `${s.slice(0, 3)} 學年度 第 ${s.slice(3)} 學期` : s;
+    }
+    function currentSemester() {
+        const d = new Date(), y = d.getFullYear(), m = d.getMonth() + 1;
+        if (m >= 8) return `${y - 1911}1`;
+        if (m === 1) return `${y - 1912}1`;
+        return `${y - 1912}2`;
+    }
+    function deptName(code) { return DEPT_MAP[code] || ""; }
+    function setBusy(btn, busy, text) {
+        if (!btn) return;
+        if (busy) { btn.dataset.text = btn.textContent; btn.textContent = text || "處理中..."; btn.disabled = true; }
+        else { btn.textContent = btn.dataset.text || btn.textContent; btn.disabled = false; }
+    }
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+
+    async function api(path, { method = "GET", body } = {}) {
+        let res;
+        try {
+            res = await fetch(`${API_BASE}${path}`, {
+                method,
+                headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+                body: body ? JSON.stringify(body) : undefined,
+            });
+        } catch {
+            throw new Error("連不到伺服器（雲端主機休眠時，第一次連線要等 30～50 秒，請稍後再試）");
+        }
+        const text = await res.text();
+        let data = null;
+        try { data = text ? JSON.parse(text) : null; } catch { data = null; }
+        if (res.status === 401 && path !== "/api/auth/login") {
+            showLogin("登入已過期，請重新登入（畫面上的資料會保留）");
+            throw new Error("請重新登入");
+        }
+        if (!res.ok) throw new Error(data?.message || `發生錯誤（HTTP ${res.status}）`);
+        return data;
+    }
+
+    /* ========== 登入 / 登出 ========== */
+    function showLogin(msg = "") {
+        document.getElementById("login-overlay").style.display = "flex";
+        document.getElementById("login-msg").textContent = msg;
+        document.getElementById("login-password").value = "";
+        if (me) document.getElementById("login-email").value = me.email;
+    }
+
+    async function handleLogin() {
+        const email = document.getElementById("login-email").value.trim();
+        const password = document.getElementById("login-password").value;
+        const msg = document.getElementById("login-msg");
+        if (!email || !password) { msg.textContent = "請輸入帳號與密碼"; return; }
+
+        const btn = document.getElementById("login-btn");
+        setBusy(btn, true, "登入中...（第一次連線可能要等 30 秒）");
+        msg.textContent = "";
+        try {
+            const data = await api("/api/auth/login", { method: "POST", body: { email, password } });
+            if (data?.user?.role !== "admin") {
+                msg.textContent = "這個帳號不是課程管理者，請改用學生頁面登入";
+                return;
+            }
+            token = data.accessToken;
+            localStorage.setItem("adminAccessToken", token);
+            await enterApp();
+        } catch (e) {
+            msg.textContent = /HTTP 401|請重新登入|請先登入/.test(e.message) ? "帳號或密碼錯誤" : e.message;
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    async function enterApp() {
+        const firstTime = !me;
+        const data = await api("/api/auth/me");
+        if (data.user.role !== "admin") {
+            token = ""; localStorage.removeItem("adminAccessToken");
+            showLogin("這個帳號不是課程管理者");
+            return;
+        }
+        me = data.user;
+        document.getElementById("login-overlay").style.display = "none";
+        document.getElementById("app").style.display = "block";
+        document.getElementById("me-name").textContent = me.username || me.email;
+        document.getElementById("pf-email").textContent = me.email;
+        document.getElementById("pf-name").textContent = me.username || "（未設定）";
+        document.getElementById("pf-created").textContent = new Date(me.createdAt).toLocaleString("zh-TW");
+        if (firstTime) {
+            await loadSemesters();
+            await Promise.all([loadCourses(1), loadUsers(1)]);
+        }
+    }
+
+    function handleLogout() {
+        if (!confirm("確定要登出管理者後台嗎？")) return;
+        token = ""; me = null;
+        localStorage.removeItem("adminAccessToken");
+        document.getElementById("app").style.display = "none";
+        document.getElementById("login-email").value = "";
+        showLogin("");
+    }
+
+    function switchSection(id) {
+        document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === id));
+        document.querySelectorAll(".nav-link[data-sec]").forEach(a => a.classList.toggle("active", a.dataset.sec === id));
+    }
+
+    /* ========== 學期 ========== */
+    async function loadSemesters(keep) {
+        const data = await api("/api/admin/semesters");
+        semesterItems = data.items;
+        const sel = document.getElementById("course-semester");
+        const prev = keep || sel.value;
+        const options = data.items.map(i => `<option value="${i.semester}">${semesterLabel(i.semester)}（${i.count} 門）</option>`);
+        options.push(`<option value="">全部學期</option>`);
+        sel.innerHTML = options.join("");
+        const want = prev !== undefined && [...sel.options].some(o => o.value === prev) && prev !== ""
+            ? prev
+            : (data.items.find(i => i.semester === data.dataSemester)?.semester ?? data.items[0]?.semester ?? "");
+        sel.value = want;
+
+        // 匯入用的學期選單：自動判斷 ＋ 已有資料的學期 ＋ 從 110-1 到下學期
+        const imp = document.getElementById("import-semester");
+        const set = new Set(data.items.map(i => i.semester));
+        let y = 110, t = 1;
+        const cur = currentSemester();
+        const next = cur.endsWith("1") ? `${cur.slice(0, 3)}2` : `${Number(cur.slice(0, 3)) + 1}1`;
+        while (`${y}${t}` <= next) { set.add(`${y}${t}`); if (t === 1) t = 2; else { t = 1; y++; } }
+        const list = [...set].sort().reverse();
+        imp.innerHTML = `<option value="">依檔案內容自動判斷</option>` +
+            list.map(s => `<option value="${s}">${semesterLabel(s)}${data.items.find(i => i.semester === s) ? `（目前 ${data.items.find(i => i.semester === s).count} 門）` : ""}</option>`).join("");
+    }
+
+    /* ========== 課程管理 ========== */
+    function typeKey(c) { return `${c.type}|${c.required}`; }
+    function typeTag(c) {
+        const key = typeKey(c);
+        return `<span class="tag ${c.type}">${TYPE_LABEL[key] || (c.type === "general" ? "通識" : c.required ? "專業必修" : "專業選修")}</span>`;
+    }
+    function scheduleText(c) {
+        return (c.sections || []).map(s => {
+            const times = (s.schedules || []).map(t => `週${DAY_NAMES[t.day] || t.day} ${t.start === t.end ? t.start : `${t.start}-${t.end}`} 節${t.location && t.location !== s.location ? `（${escapeHtml(t.location)}）` : ""}`).join("、");
+            return `<div><b>${escapeHtml(s.code)}</b>　${times || "（未排時間）"}${s.location ? `　<span style="color:#888;">${escapeHtml(s.location)}</span>` : ""}</div>`;
+        }).join("");
+    }
+
+    let courseCache = new Map();
+    let courseReq = 0;
+    async function loadCourses(page = courseState.page) {
+        const semester = document.getElementById("course-semester").value;
+        const q = document.getElementById("course-q").value.trim();
+        const reqId = ++courseReq;
+        const tbody = document.getElementById("course-tbody");
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="9">載入中...</td></tr>`;
+        try {
+            const data = await api(`/api/admin/courses?semester=${encodeURIComponent(semester)}&q=${encodeURIComponent(q)}&page=${page}&pageSize=20`);
+            if (reqId !== courseReq) return;
+            courseState = { page: data.page, totalPages: data.totalPages };
+            courseCache = new Map(data.items.map(c => [c.id, c]));
+            document.getElementById("course-count").textContent = `共 ${data.total} 門課程${q ? `（關鍵字「${q}」）` : ""}，第 ${data.page} / ${data.totalPages} 頁`;
+            tbody.innerHTML = data.items.length ? data.items.map(c => `
+                <tr>
+                    <td class="code">${escapeHtml(c.code)}${semester ? "" : `<div style="color:#999;">${escapeHtml(c.semester)}</div>`}</td>
+                    <td><b>${escapeHtml(c.name)}</b></td>
+                    <td>${escapeHtml(c.teacher || "")}</td>
+                    <td>${c.credits}</td>
+                    <td>${typeTag(c)}</td>
+                    <td>${escapeHtml(c.department || "")}<div style="color:#888;font-size:.85em;">${escapeHtml(deptName(c.department))}</div></td>
+                    <td>${c.grade ?? "－"}</td>
+                    <td style="font-size:.9em;">${scheduleText(c)}</td>
+                    <td class="actions">
+                        <button class="btn light small" onclick="openCourseModal('${c.id}')">編輯</button>
+                        <button class="btn danger small" onclick="deleteCourse('${c.id}')">刪除</button>
+                    </td>
+                </tr>`).join("") : `<tr class="empty-row"><td colspan="9">查無課程</td></tr>`;
+            renderPager("course-pager", courseState, loadCourses);
+        } catch (e) {
+            if (reqId !== courseReq) return;
+            tbody.innerHTML = `<tr class="empty-row"><td colspan="9">${escapeHtml(e.message)}</td></tr>`;
+        }
+    }
+
+    function renderPager(id, state, go) {
+        const el = document.getElementById(id);
+        if (state.totalPages <= 1) { el.innerHTML = ""; return; }
+        const { page, totalPages } = state;
+        const pages = new Set([1, totalPages, page - 2, page - 1, page, page + 1, page + 2].filter(p => p >= 1 && p <= totalPages));
+        const sorted = [...pages].sort((a, b) => a - b);
+        let html = `<button ${page === 1 ? "disabled" : ""} data-p="${page - 1}">上一頁</button>`;
+        let last = 0;
+        for (const p of sorted) {
+            if (p - last > 1) html += `<span>…</span>`;
+            html += `<button class="${p === page ? "active" : ""}" data-p="${p}">${p}</button>`;
+            last = p;
+        }
+        html += `<button ${page === totalPages ? "disabled" : ""} data-p="${page + 1}">下一頁</button>`;
+        el.innerHTML = html;
+        el.querySelectorAll("button[data-p]").forEach(b => b.onclick = () => go(Number(b.dataset.p)));
+    }
+
+    /* ----- 課程表單 ----- */
+    function slotRowHtml(t = {}) {
+        const dayOpts = [1, 2, 3, 4, 5, 6, 7].map(d => `<option value="${d}" ${Number(t.day) === d ? "selected" : ""}>星期${DAY_NAMES[d]}</option>`).join("");
+        const pOpts = v => Array.from({ length: 14 }, (_, i) => i + 1).map(p => `<option value="${p}" ${Number(v) === p ? "selected" : ""}>第 ${p} 節</option>`).join("");
+        return `<div class="slot-row">
+            <select class="s-day">${dayOpts}</select>
+            <select class="s-start">${pOpts(t.start ?? 1)}</select> 到
+            <select class="s-end">${pOpts(t.end ?? t.start ?? 2)}</select>
+            <input type="text" class="s-loc" placeholder="地點（同班別可不填）" value="${escapeHtml(t.location || "")}">
+            <button class="link-btn" onclick="removeSlot(this)">移除</button>
+        </div>`;
+    }
+    function addSectionBox(s = { code: "", quota: 0, location: "", schedules: [{ day: 1, start: 1, end: 2 }] }) {
+        const box = document.createElement("div");
+        box.className = "section-box";
+        box.innerHTML = `
+            <div class="section-row">
+                <div class="field"><label>班組代碼 <span class="req">*</span></label><input type="text" class="sec-code" value="${escapeHtml(s.code)}" placeholder="例如 10"></div>
+                <div class="field"><label>上課人數</label><input type="number" class="sec-quota" min="0" value="${s.quota ?? 0}"></div>
+                <div class="field"><label>上課地點</label><input type="text" class="sec-loc" value="${escapeHtml(s.location || "")}" placeholder="例如 S103"></div>
+                <button class="btn danger small" onclick="removeSectionBox(this)">刪除班別</button>
+            </div>
+            <div class="slot-list">${(s.schedules || []).map(slotRowHtml).join("")}</div>
+            <button class="link-btn" onclick="addSlot(this)">＋ 新增上課時間</button>`;
+        document.getElementById("sections-container").appendChild(box);
+    }
+    function addSlot(btn) { btn.previousElementSibling.insertAdjacentHTML("beforeend", slotRowHtml()); }
+    function removeSlot(btn) { btn.closest(".slot-row").remove(); }
+    function removeSectionBox(btn) {
+        if (document.querySelectorAll("#sections-container .section-box").length <= 1) { toast("至少要有一個班別", "error"); return; }
+        btn.closest(".section-box").remove();
+    }
+
+    function updateFormLabels() {
+        const s = document.getElementById("f-semester").value.trim();
+        document.getElementById("f-semester-label").textContent = /^\d{4}$/.test(s) ? semesterLabel(s) : "";
+        const d = document.getElementById("f-dept").value.trim();
+        document.getElementById("f-dept-label").textContent = deptName(d);
+    }
+
+    function openCourseModal(id) {
+        editingCourseId = id || null;
+        const c = id ? courseCache.get(id) : null;
+        document.getElementById("course-modal-title").textContent = c ? `修改課程：${c.name}` : "新增課程";
+        document.getElementById("course-form-error").textContent = "";
+        document.getElementById("f-semester").value = c?.semester || document.getElementById("course-semester").value || currentSemester();
+        document.getElementById("f-code").value = c?.code || "";
+        document.getElementById("f-name").value = c?.name || "";
+        document.getElementById("f-teacher").value = c?.teacher || "";
+        document.getElementById("f-credits").value = c?.credits ?? 3;
+        const kind = c ? (TYPE_LABEL[typeKey(c)] ? typeKey(c) : (c.type === "general" ? "general|false" : c.required ? "core|true" : "elective|false")) : "core|true";
+        document.getElementById("f-kind").value = kind;
+        document.getElementById("f-dept").value = c?.department || "";
+        document.getElementById("f-grade").value = c?.grade ?? "";
+        const container = document.getElementById("sections-container");
+        container.innerHTML = "";
+        if (c && c.sections?.length) c.sections.forEach(s => addSectionBox(s));
+        else addSectionBox();
+        updateFormLabels();
+        document.getElementById("course-modal").classList.add("show");
+        document.getElementById(c ? "f-name" : "f-code").focus();
+    }
+
+    function collectCourseForm() {
+        const [type, req] = document.getElementById("f-kind").value.split("|");
+        return {
+            semester: document.getElementById("f-semester").value.trim(),
+            code: document.getElementById("f-code").value.trim(),
+            name: document.getElementById("f-name").value.trim(),
+            teacher: document.getElementById("f-teacher").value.trim(),
+            credits: document.getElementById("f-credits").value,
+            type,
+            required: req === "true",
+            department: document.getElementById("f-dept").value.trim(),
+            grade: document.getElementById("f-grade").value,
+            sections: [...document.querySelectorAll("#sections-container .section-box")].map(box => ({
+                code: box.querySelector(".sec-code").value.trim(),
+                quota: box.querySelector(".sec-quota").value,
+                location: box.querySelector(".sec-loc").value.trim(),
+                schedules: [...box.querySelectorAll(".slot-row")].map(r => ({
+                    day: r.querySelector(".s-day").value,
+                    start: r.querySelector(".s-start").value,
+                    end: r.querySelector(".s-end").value,
+                    location: r.querySelector(".s-loc").value.trim(),
+                })),
+            })),
+        };
+    }
+
+    async function saveCourse() {
+        const body = collectCourseForm();
+        const err = document.getElementById("course-form-error");
+        if (!/^\d{4}$/.test(body.semester)) { err.textContent = "學期要是 4 位數字，例如 1151"; return; }
+        if (!body.code || !body.name) { err.textContent = "請填寫課程代碼與課程名稱"; return; }
+        const btn = document.getElementById("course-save-btn");
+        setBusy(btn, true, "儲存中...");
+        err.textContent = "";
+        try {
+            if (editingCourseId) await api(`/api/admin/courses/${editingCourseId}`, { method: "PUT", body });
+            else await api(`/api/admin/courses`, { method: "POST", body });
+            closeModal("course-modal");
+            toast(editingCourseId ? "課程已更新" : "課程已新增", "success");
+            await loadSemesters(document.getElementById("course-semester").value || body.semester);
+            if (!editingCourseId && document.getElementById("course-semester").value !== body.semester) {
+                document.getElementById("course-semester").value = body.semester;
+            }
+            await loadCourses(editingCourseId ? courseState.page : 1);
+        } catch (e) {
+            err.textContent = e.message;
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    async function deleteCourse(id) {
+        const c = courseCache.get(id);
+        if (!c) return;
+        if (!confirm(`確定要刪除這門課程嗎？\n\n${c.code}　${c.name}（${c.teacher || "未填教師"}）\n\n已經把這門課加入課表的學生，課表裡的這門課也會一起移除，刪除後無法復原。`)) return;
+        try {
+            const r = await api(`/api/admin/courses/${id}`, { method: "DELETE" });
+            toast(`已刪除「${r.deleted}」${r.removedFromPlanners ? `，並從 ${r.removedFromPlanners} 位學生的課表移除` : ""}`, "success");
+            await loadSemesters();
+            const pageAfter = courseCache.size === 1 && courseState.page > 1 ? courseState.page - 1 : courseState.page;
+            await loadCourses(pageAfter);
+        } catch (e) {
+            toast(e.message, "error");
+        }
+    }
+
+    /* ========== 匯入 ========== */
+    function setImportFile(file) {
+        if (!file) return;
+        if (!/\.(xls|xlsx)$/i.test(file.name)) { toast("請選擇 .xls 或 .xlsx 檔案", "error"); return; }
+        if (file.size > 15 * 1024 * 1024) { toast("檔案超過 15MB，請確認是否選錯檔案", "error"); return; }
+        importFile = file;
+        document.getElementById("import-file-name").textContent = `${file.name}（${(file.size / 1024).toFixed(0)} KB）`;
+        document.getElementById("preview-btn").disabled = false;
+        document.getElementById("preview-box").style.display = "none";
+        document.getElementById("import-result").style.display = "none";
+        const m = file.name.match(/(\d{4})/);
+        const sel = document.getElementById("import-semester");
+        sel.value = "";
+        if (m && [...sel.options].some(o => o.value === m[1])) sel.dataset.guess = m[1];
+    }
+    function readFileBase64(file) {
+        return new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result).split(",")[1] || "");
+            r.onerror = () => reject(new Error("檔案讀取失敗"));
+            r.readAsDataURL(file);
+        });
+    }
+    function importBody(dryRun) {
+        return readFileBase64(importFile).then(fileBase64 => ({
+            fileBase64, filename: importFile.name, dryRun,
+            semester: document.getElementById("import-semester").value || undefined,
+        }));
+    }
+
+    async function previewImport() {
+        if (!importFile) return;
+        const btn = document.getElementById("preview-btn");
+        setBusy(btn, true, "讀取中...");
+        try {
+            const data = await api("/api/admin/courses/import", { method: "POST", body: await importBody(true) });
+            const p = data.preview;
+            document.getElementById("pv-title").textContent = `${p.filename} → ${semesterLabel(p.semester)}`;
+            document.getElementById("pv-stats").innerHTML = [
+                [p.courses, "門課程"], [p.sections, "個開課班別"], [p.schedules, "筆上課時間"], [p.general, "門通識課"], [p.skipped, "列資料不完整略過"],
+            ].map(([n, t]) => `<div class="stat"><b>${n}</b><span>${t}</span></div>`).join("");
+            let warn = "";
+            if (p.detectedSemester && p.detectedSemester !== p.semester) warn += `<div class="warn">⚠ 檔案內容是 ${semesterLabel(p.detectedSemester)}，但你選擇匯入到 ${semesterLabel(p.semester)}。</div>`;
+            if (p.existingCount > 0) warn += `<div class="warn">⚠ ${semesterLabel(p.semester)} 目前已經有 <b>${p.existingCount}</b> 門課，確認匯入後會<b>整批換成這個檔案的內容</b>。學生課表裡的課會依課程代碼自動對應到新資料；新檔案裡沒有的課會從學生課表移除。</div>`;
+            else warn += `<div class="warn" style="background:#eef7f5;border-color:#cfe9e3;color:#005a4a;">${semesterLabel(p.semester)} 目前沒有課程資料，匯入後學生選這個學期就會看到這些課。</div>`;
+            document.getElementById("pv-warn").innerHTML = warn;
+            document.getElementById("pv-sample").innerHTML = p.sample.map(c => `<tr><td class="code">${escapeHtml(c.code)}</td><td>${escapeHtml(c.name)}</td><td>${escapeHtml(c.teacher)}</td><td>${c.credits}</td><td><span class="tag ${c.type}">${c.type === "general" ? "通識" : c.type === "core" ? "必修" : "選修"}</span></td></tr>`).join("") +
+                `<tr><td colspan="5" style="color:#999;text-align:center;">（只列出前 5 門）</td></tr>`;
+            document.getElementById("preview-box").dataset.semester = p.semester;
+            document.getElementById("preview-box").style.display = "block";
+            document.getElementById("import-result").style.display = "none";
+        } catch (e) {
+            toast(e.message, "error");
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    async function confirmImport() {
+        const sem = document.getElementById("preview-box").dataset.semester;
+        if (!confirm(`確定要把這個檔案匯入到 ${semesterLabel(sem)} 嗎？`)) return;
+        const btn = document.getElementById("import-btn");
+        setBusy(btn, true, "匯入中，請稍候...");
+        try {
+            const data = await api("/api/admin/courses/import", { method: "POST", body: await importBody(false) });
+            const p = data.preview, r = data.result;
+            const box = document.getElementById("import-result");
+            box.innerHTML = `✅ 匯入完成：${semesterLabel(p.semester)} 共 ${p.courses} 門課程、${p.sections} 個班別、${p.schedules} 筆上課時間。` +
+                (r.deletedCourses ? `<br>已取代原本的 ${r.deletedCourses} 門課；學生課表保留 ${r.keptPlannerItems} 筆${r.lostPlannerItems ? `，${r.lostPlannerItems} 筆因新檔案沒有這門課而移除` : ""}。` : "");
+            box.style.display = "block";
+            document.getElementById("preview-box").style.display = "none";
+            toast("匯入完成", "success");
+            await loadSemesters(p.semester);
+            document.getElementById("course-semester").value = p.semester;
+            await loadCourses(1);
+        } catch (e) {
+            toast(e.message, "error");
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    function resetImport() {
+        importFile = null;
+        document.getElementById("import-file").value = "";
+        document.getElementById("import-file-name").textContent = "";
+        document.getElementById("preview-btn").disabled = true;
+        document.getElementById("preview-box").style.display = "none";
+    }
+
+    /* ========== 帳號管理 ========== */
+    let userCache = new Map();
+    let userReq = 0;
+    async function loadUsers(page = userState.page) {
+        const q = document.getElementById("user-q").value.trim();
+        const role = document.getElementById("user-role").value;
+        const reqId = ++userReq;
+        const tbody = document.getElementById("user-tbody");
+        tbody.innerHTML = `<tr class="empty-row"><td colspan="6">載入中...</td></tr>`;
+        try {
+            const data = await api(`/api/admin/users?q=${encodeURIComponent(q)}&role=${role}&page=${page}&pageSize=20`);
+            if (reqId !== userReq) return;
+            userState = { page: data.page, totalPages: data.totalPages };
+            userCache = new Map(data.items.map(u => [u.id, u]));
+            document.getElementById("user-count").textContent = `共 ${data.total} 個帳號，第 ${data.page} / ${data.totalPages} 頁`;
+            tbody.innerHTML = data.items.length ? data.items.map(u => `
+                <tr>
+                    <td><b>${escapeHtml(u.email)}</b>${u.isMe ? `<span class="tag me">我</span>` : ""}</td>
+                    <td>${escapeHtml(u.username || "")}</td>
+                    <td><span class="tag ${u.role}">${u.role === "admin" ? "課程管理者" : "學生"}</span></td>
+                    <td>${u.plannerCount}</td>
+                    <td style="color:#777;">${new Date(u.createdAt).toLocaleString("zh-TW", { hour12: false })}</td>
+                    <td class="actions">
+                        <button class="btn light small" onclick="openUserModal('${u.id}')">編輯</button>
+                        <button class="btn light small" onclick="openResetModal('${u.id}')">重設密碼</button>
+                        ${u.isMe ? "" : `<button class="btn danger small" onclick="deleteUser('${u.id}')">刪除</button>`}
+                    </td>
+                </tr>`).join("") : `<tr class="empty-row"><td colspan="6">查無帳號</td></tr>`;
+            renderPager("user-pager", userState, loadUsers);
+        } catch (e) {
+            if (reqId !== userReq) return;
+            tbody.innerHTML = `<tr class="empty-row"><td colspan="6">${escapeHtml(e.message)}</td></tr>`;
+        }
+    }
+
+    function openUserModal(id) {
+        editingUserId = id || null;
+        const u = id ? userCache.get(id) : null;
+        document.getElementById("user-modal-title").textContent = u ? `修改帳號：${u.email}` : "新增帳號";
+        document.getElementById("u-email").value = u?.email || "";
+        document.getElementById("u-name").value = u?.username || "";
+        document.getElementById("u-role").value = u?.role || "student";
+        document.getElementById("u-role").disabled = !!u?.isMe;
+        document.getElementById("u-password").value = "";
+        document.getElementById("u-password-field").style.display = u ? "none" : "block";
+        document.getElementById("user-form-error").textContent = u?.isMe ? "不能取消自己的管理者權限" : "";
+        document.getElementById("user-modal").classList.add("show");
+        document.getElementById("u-email").focus();
+    }
+
+    async function saveUser() {
+        const body = {
+            email: document.getElementById("u-email").value.trim(),
+            username: document.getElementById("u-name").value.trim(),
+            role: document.getElementById("u-role").value,
+        };
+        const err = document.getElementById("user-form-error");
+        if (!body.email) { err.textContent = "請輸入帳號（學號）"; return; }
+        if (!editingUserId) {
+            body.password = document.getElementById("u-password").value;
+            if (body.password.length < 6) { err.textContent = "密碼至少要 6 個字"; return; }
+        }
+        const u = editingUserId ? userCache.get(editingUserId) : null;
+        if (u && u.role !== body.role && !confirm(body.role === "admin" ? `確定要把 ${u.email} 設成課程管理者嗎？他將可以管理所有課程與帳號。` : `確定要取消 ${u.email} 的課程管理者權限嗎？`)) return;
+
+        const btn = document.getElementById("user-save-btn");
+        setBusy(btn, true, "儲存中...");
+        err.textContent = "";
+        try {
+            if (editingUserId) await api(`/api/admin/users/${editingUserId}`, { method: "PUT", body });
+            else await api(`/api/admin/users`, { method: "POST", body });
+            closeModal("user-modal");
+            toast(editingUserId ? "帳號已更新" : "帳號已建立", "success");
+            if (u?.isMe) await enterApp();
+            await loadUsers(editingUserId ? userState.page : 1);
+        } catch (e) {
+            err.textContent = e.message;
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    function openResetModal(id) {
+        resetUserId = id;
+        document.getElementById("reset-email").textContent = userCache.get(id)?.email || "";
+        document.getElementById("reset-password").value = "";
+        document.getElementById("reset-form-error").textContent = "";
+        document.getElementById("reset-modal").classList.add("show");
+        document.getElementById("reset-password").focus();
+    }
+
+    async function doResetPassword() {
+        const password = document.getElementById("reset-password").value;
+        const err = document.getElementById("reset-form-error");
+        if (password.length < 6) { err.textContent = "密碼至少要 6 個字"; return; }
+        const btn = document.getElementById("reset-save-btn");
+        setBusy(btn, true, "處理中...");
+        try {
+            await api(`/api/admin/users/${resetUserId}/password`, { method: "PUT", body: { password } });
+            closeModal("reset-modal");
+            toast("密碼已重設", "success");
+        } catch (e) {
+            err.textContent = e.message;
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    async function deleteUser(id) {
+        const u = userCache.get(id);
+        if (!u) return;
+        if (!confirm(`確定要刪除帳號「${u.email}」嗎？\n\n這個帳號儲存的課表（${u.plannerCount} 門課）會一起刪除，刪除後無法復原。`)) return;
+        try {
+            await api(`/api/admin/users/${id}`, { method: "DELETE" });
+            toast(`已刪除帳號 ${u.email}`, "success");
+            const pageAfter = userCache.size === 1 && userState.page > 1 ? userState.page - 1 : userState.page;
+            await loadUsers(pageAfter);
+        } catch (e) {
+            toast(e.message, "error");
+        }
+    }
+
+    /* ========== 個人帳號 ========== */
+    async function changeMyPassword() {
+        const oldPassword = document.getElementById("pw-old").value;
+        const newPassword = document.getElementById("pw-new").value;
+        const again = document.getElementById("pw-new2").value;
+        if (!oldPassword) return toast("請輸入目前的密碼", "error");
+        if (newPassword.length < 6) return toast("新密碼至少要 6 個字", "error");
+        if (newPassword !== again) return toast("兩次輸入的新密碼不一樣", "error");
+        const btn = document.getElementById("pw-btn");
+        setBusy(btn, true, "更新中...");
+        try {
+            await api("/api/auth/password", { method: "PUT", body: { oldPassword, newPassword } });
+            ["pw-old", "pw-new", "pw-new2"].forEach(id => document.getElementById(id).value = "");
+            toast("密碼已更新，下次登入請使用新密碼", "success");
+        } catch (e) {
+            toast(e.message, "error");
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    /* ========== 對話框 ========== */
+    function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+    document.querySelectorAll(".modal-bg").forEach(bg => bg.addEventListener("mousedown", e => { if (e.target === bg) bg.classList.remove("show"); }));
+    document.addEventListener("keydown", e => { if (e.key === "Escape") document.querySelectorAll(".modal-bg.show").forEach(m => m.classList.remove("show")); });
+
+    /* ========== 初始化 ========== */
+    document.getElementById("dept-list").innerHTML = Object.entries(DEPT_MAP).map(([k, v]) => `<option value="${k}">${escapeHtml(v)}</option>`).join("");
+    ["f-semester", "f-dept"].forEach(id => document.getElementById(id).addEventListener("input", updateFormLabels));
+    document.getElementById("course-q").addEventListener("input", debounce(() => loadCourses(1), 300));
+    document.getElementById("user-q").addEventListener("input", debounce(() => loadUsers(1), 300));
+    ["login-email", "login-password"].forEach(id => document.getElementById(id).addEventListener("keydown", e => { if (e.key === "Enter") handleLogin(); }));
+    document.getElementById("reset-password").addEventListener("keydown", e => { if (e.key === "Enter") doResetPassword(); });
+    document.getElementById("import-file").addEventListener("change", e => setImportFile(e.target.files[0]));
+    const dz = document.getElementById("drop-zone");
+    ["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add("drag"); }));
+    ["dragleave", "drop"].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove("drag"); }));
+    dz.addEventListener("drop", e => setImportFile(e.dataTransfer.files[0]));
+
+    // 之前登入過、token 還沒過期 → 直接進後台
+    if (token) enterApp().catch(() => {});
+</script>
+</body>
+</html>

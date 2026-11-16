@@ -8,6 +8,25 @@ const prisma = new PrismaClient();
 const COURSE_DATA_SEMESTER = String(process.env.COURSE_DATA_SEMESTER || "1101").trim();
 const FIRST_SEMESTER = "1101";
 
+// 【新增】哪些學期資料庫裡真的有課（管理者匯入或新增課程後會更新）
+//   學生選的學期「有自己的課程資料」→ 顯示該學期的課
+//   沒有資料 → 跟原本一樣，顯示 COURSE_DATA_SEMESTER（110-1）那一份
+let semesterCache = { at: 0, counts: new Map() };
+export function invalidateSemesterCache() {
+  semesterCache = { at: 0, counts: new Map() };
+}
+async function semesterCounts() {
+  if (Date.now() - semesterCache.at < 60 * 1000) return semesterCache.counts;
+  const groups = await prisma.course.groupBy({ by: ["semester"], _count: { _all: true } });
+  semesterCache = { at: Date.now(), counts: new Map(groups.map(g => [g.semester, g._count._all])) };
+  return semesterCache.counts;
+}
+async function resolveSemester(requested) {
+  const sem = String(requested || "").trim();
+  const counts = await semesterCounts();
+  return sem && counts.get(sem) ? sem : COURSE_DATA_SEMESTER;
+}
+
 // 依今天日期算出目前學期（民國學年度）
 //   8 月～隔年 1 月 = 第 1 學期；2 月～7 月 = 第 2 學期
 //   例：2026 年 11 月 → 115 學年度第 1 學期 → "1151"
@@ -38,7 +57,7 @@ function semesterRange(from, to) {
  *   例如選二技護理系(11120) 會連四技(11140)、碩士班(1116x)、博士班(11170) 都抓進來。
  *   系所代碼第 4 碼代表學制，所以改成精確比對整個代碼。
  */
-function buildDeptWhere(req) {
+async function buildDeptWhere(req) {
   const deptRaw = String(req.query.dept || "").trim();
   const deptList = deptRaw
     ? deptRaw.split(",").map(s => s.trim()).filter(Boolean)
@@ -71,10 +90,10 @@ function buildDeptWhere(req) {
     where.type = "general";
   }
 
-  // 【修改】學期：不管前端選哪個學期，課程都固定讀「課程資料來源學期」（預設 1101 = 110-1）
-  //   需求：每個學期顯示的課程都跟 110-1 一樣
-  //   要換資料來源，在 .env 加上 COURSE_DATA_SEMESTER=學期代碼（例如 1141）再重啟後端
-  where.semester = COURSE_DATA_SEMESTER;
+  // 【修改】學期：沒有自己課程資料的學期，都顯示「課程資料來源學期」（預設 1101 = 110-1）
+  //   管理者匯入某學期的課程後，選那個學期就會顯示它自己的課
+  //   要換預設資料來源，在 .env 加上 COURSE_DATA_SEMESTER=學期代碼（例如 1141）再重啟後端
+  where.semester = await resolveSemester(req.query.semester);
 
   // 【新增】day=1,3 → 週一或週三「有上課」的課（只要有任一個上課時間在這幾天就算）
   const dayList = String(req.query.day ?? "")
@@ -96,7 +115,7 @@ export async function listCourses(req, res) {
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 50)));
 
-    const { where, deptRaw, deptList } = buildDeptWhere(req);
+    const { where, deptRaw, deptList } = await buildDeptWhere(req);
 
     console.log("[listCourses]", { page, pageSize, deptRaw, deptList });
 
@@ -137,7 +156,7 @@ export async function searchCourses(req, res) {
     const page = Math.max(1, Number(req.query.page || 1));
     const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize || 50)));
 
-    const { where: deptWhere, deptRaw, deptList } = buildDeptWhere(req);
+    const { where: deptWhere, deptRaw, deptList } = await buildDeptWhere(req);
 
     const textWhere = q
       ? {
@@ -273,18 +292,22 @@ export async function getCourseSchedules(req, res) {
 /**
  * GET /api/courses/semesters
  * 【修改】學期清單改成自動產生：從 110-1 到「今天所在的學期」（新的在前），
- *   每個學期的課程都是同一份（COURSE_DATA_SEMESTER），所以課程數都一樣。
+ *   有自己課程資料的學期顯示自己的課程數，其他學期顯示 COURSE_DATA_SEMESTER 那一份。
  * 例：{ ok: true, current: "1151", items: [{ semester: "1151", year: 115, term: 1, count: 1194 }, ...] }
  */
 export async function listSemesters(req, res) {
   try {
-    const count = await prisma.course.count({ where: { semester: COURSE_DATA_SEMESTER } });
+    const counts = await semesterCounts();
+    const fallbackCount = counts.get(COURSE_DATA_SEMESTER) || 0;
     const current = currentSemester();
-    const items = semesterRange(FIRST_SEMESTER, current).map(sem => ({
+    // 管理者提早匯入下學期的課，選單也要列得出來
+    const newest = [current, ...counts.keys()].filter(s => /^\d{4}$/.test(s)).sort().pop();
+    const items = semesterRange(FIRST_SEMESTER, newest).map(sem => ({
       semester: sem,
       year: Number(sem.slice(0, 3)),
       term: Number(sem.slice(3)),
-      count,
+      count: counts.get(sem) || fallbackCount,
+      hasOwnData: counts.has(sem),
     }));
     res.json({ ok: true, current, dataSemester: COURSE_DATA_SEMESTER, items });
   } catch (e) {

@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "start": "node server.js",
-    "test:auth": "powershell -ExecutionPolicy Bypass -File test-auth.ps1"
+    "test:auth": "powershell -ExecutionPolicy Bypass -File test-auth.ps1",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

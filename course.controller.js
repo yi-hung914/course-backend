@@ -148,8 +148,10 @@ async function buildDeptWhere(req) {
   // 【新增】credits=2,3 → 2 學分或 3 學分的課（智慧助理用）
   const creditList = String(req.query.credits ?? "")
     .split(",")
-    .map(s => Number(s.trim()))
-    .filter(n => Number.isInteger(n) && n >= 0 && n <= 20);
+    .map(s => s.trim())
+    .filter(s => /^\d+$/.test(s))          // 沒帶參數時是空字串，不能當成 0 學分
+    .map(Number)
+    .filter(n => n <= 20);
   if (creditList.length > 0) {
     where.credits = { in: creditList };
   }

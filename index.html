@@ -386,6 +386,22 @@
             transition: all 0.3s ease;
         }
         
+        /* 【新增】收藏按鈕（課程卡片右上角的星星） */
+        .course-card { position: relative; }
+        .course-card .course-title { padding-right: 34px; }
+        .fav-btn {
+            position: absolute; top: 12px; right: 12px;
+            width: 34px; height: 34px; border-radius: 50%;
+            border: 1px solid #e0e0e0; background: white; color: #bbb;
+            font-size: 1.25em; line-height: 1; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .fav-btn:hover { color: #f5a623; border-color: #f5a623; }
+        .fav-btn.on { color: #f5a623; border-color: #f5c66b; background: #fff8e6; }
+        .filter-item.fav-chip.active { background-color: #f5a623; border-color: #f5a623; color: white; }
+        .fav-empty { padding: 30px 10px; text-align: center; color: #888; line-height: 1.8; }
+
         .course-card:hover {
             transform: translateY(-5px);
             box-shadow: 0 8px 20px rgba(0,0,0,0.12);
@@ -1026,6 +1042,8 @@
                         <div class="filter-item" data-filter="2">二年級</div>
                         <div class="filter-item" data-filter="3">三年級</div>
                         <div class="filter-item" data-filter="4">四年級</div>
+                        <!-- 【新增】只看收藏的課 -->
+                        <div class="filter-item fav-chip" data-filter="fav">★ 我的收藏</div>
                     </div>
 
                     <!-- 【新增】上課星期（可複選，例如 週一 + 週三 = 週一或週三有上課的課） -->
@@ -1702,6 +1720,7 @@ function resetToFirstPageAndReload() {
 
                 // 【新增】登入後把之前儲存的課表讀回來（不等它，課程列表照常載入）
                 loadSavedSchedule();
+                loadFavorites();   // 【新增】讀取收藏（課程卡片的星星）
 
                 await loadSemesters();   // 【新增】先決定學期，課程列表才會只顯示該學期
                 await showAllCourses();
@@ -1791,6 +1810,8 @@ function resetToFirstPageAndReload() {
             resetDepartmentSelects();   // 【新增】登出時學制、系所選單也恢復原狀
 
             // 【新增】篩選條件、搜尋字也清掉，下一個人登入是乾淨的畫面
+            favoritesMode = false;
+            favoriteIds = new Set();
             clearAllFilters();
             const searchInput = document.getElementById('course-search');
             if (searchInput) searchInput.value = "";
@@ -1881,6 +1902,7 @@ function selectDepartment() {
     selectedDepartments.push(selectedCode);  // ✅ 存代碼
     updateDeptTags();
     updateDepartmentOptions();   // 【修改】更新選單，把剛選的標成「（已選）」，並保留目前的學制範圍
+    exitFavoritesMode();
     goToPage(1, { scrollTop: false, direction: 0 });   // 【修改】選了就自動篩選（跟移除系所一致），會保留搜尋關鍵字
   }
 }
@@ -1919,6 +1941,7 @@ function removeDepartment(code) {
   selectedDepartments = selectedDepartments.filter(d => d !== code);
   updateDeptTags();
   updateDepartmentOptions();   // 【修改】移除後，選單裡這個系所恢復可選
+  exitFavoritesMode();
   goToPage(1, { scrollTop: true, direction: 0 });
 }
 
@@ -1926,6 +1949,7 @@ function removeDepartment(code) {
             selectedDepartments = [];
             updateDeptTags();
             resetDepartmentSelects();   // 【修改】恢復成「全部學制」+ 全部系所，而不是鎖住系所選單
+            exitFavoritesMode();
             goToPage(1, { scrollTop: false, direction: 0 });   // 【修改】改用 goToPage，會保留搜尋框的關鍵字
         }
 
@@ -1971,12 +1995,16 @@ function nextPage() {
         let selectedDays = new Set();     // 【新增】上課星期 "1" ~ "5"
         let selectedSemester = "";        // 【新增】學年學期，例如 "1141"；空字串 = 不限
         let filterListenersReady = false; // 避免登入時重複綁定事件（重複綁定會讓點一下等於點兩下）
+        let favoriteIds = new Set();      // 【新增】已收藏的課程 id
+        let favoritesMode = false;        // 【新增】目前是否在看「我的收藏」
 
         function refreshFilterChips() {
-            const noFilter = selectedTypes.size === 0 && selectedGrades.size === 0 && selectedDays.size === 0;
+            const noFilter = !favoritesMode && selectedTypes.size === 0 && selectedGrades.size === 0 && selectedDays.size === 0;
             document.querySelectorAll('.filter-item').forEach(item => {
                 const f = item.getAttribute("data-filter");
                 const on = f === "all" ? noFilter
+                         : f === "fav" ? favoritesMode
+                         : favoritesMode ? false   // 看收藏時，其他篩選暫時不作用
                          : f.startsWith("day-") ? selectedDays.has(f.slice(4))
                          : /^\d$/.test(f) ? selectedGrades.has(f)
                          : selectedTypes.has(f);
@@ -2036,6 +2064,7 @@ function nextPage() {
 
         function onSemesterChange() {
             selectedSemester = document.getElementById("semester-select").value;
+            exitFavoritesMode();
             goToPage(1, { scrollTop: false, direction: 0 });
         }
 
@@ -2053,8 +2082,17 @@ function nextPage() {
             document.querySelectorAll('.filter-item').forEach(item => {
                 const f = item.getAttribute("data-filter");
                 item.addEventListener('click', function() {
-                    if (f === "all") {
+                    if (f === "fav") {
+                        favoritesMode = !favoritesMode;   // 【新增】再點一次回到一般課程列表
+                    } else if (f === "all") {
+                        favoritesMode = false;
                         clearAllFilters();
+                    } else if (favoritesMode) {
+                        // 【新增】看收藏時點其他篩選 → 離開收藏，改用這個篩選
+                        favoritesMode = false;
+                        clearAllFilters();
+                        if (f.startsWith("day-")) selectedDays.add(f.slice(4));
+                        else (/^\d$/.test(f) ? selectedGrades : selectedTypes).add(f);
                     } else if (f.startsWith("day-")) {
                         const d = f.slice(4);
                         selectedDays.has(d) ? selectedDays.delete(d) : selectedDays.add(d);
@@ -2125,6 +2163,10 @@ async function goToPage(page, { scrollTop = false, direction = 0 } = {}) {
     currentPage = p;
 
     let shownCount = 0;
+    if (favoritesMode) {
+      await showFavorites(term);   // 【新增】我的收藏（可用搜尋框的關鍵字再篩）
+      break;
+    }
     if (term) {
       shownCount = await searchCourses(p);   // 你也要讓 searchCourses 回傳顯示筆數（同 showAllCourses）
     } else {
@@ -2300,11 +2342,102 @@ function setupLiveSearch() {
   });
 }
 
+// ===== 【新增】收藏課程 =====
+// 登入後讀取收藏清單（只要 id，課程卡片才知道星星要不要亮）
+async function loadFavorites() {
+  try {
+    const data = await apiFetch("/api/favorites");
+    favoriteIds = new Set(data.ids || []);
+    if (currentDisplayedCourses.length > 0) displayCourses(currentDisplayedCourses);
+  } catch (e) {
+    console.warn("讀取收藏失敗：", e);
+  }
+}
+
+function exitFavoritesMode() {
+  if (!favoritesMode) return;
+  favoritesMode = false;
+  refreshFilterChips();
+}
+
+// 顯示我的收藏；term = 搜尋框的關鍵字（課名、課號、教師）
+async function showFavorites(term = "") {
+  const container = document.getElementById("course-results");
+  try {
+    const requestId = ++latestCourseRequestId;
+    const data = await apiFetch("/api/favorites");
+    if (requestId !== latestCourseRequestId) return;
+
+    favoriteIds = new Set(data.ids || []);
+    const origLog = console.log;
+    console.log = () => {};   // normalizeCourseFromApi 會印很多除錯訊息，這裡先關掉
+    try {
+      courses = (data.items || []).map(c => ({ ...normalizeCourseFromApi(c), semester: c.semester }));
+    } finally {
+      console.log = origLog;
+    }
+
+    const q = String(term || "").trim().toLowerCase();
+    currentDisplayedCourses = q
+      ? courses.filter(c => [c.name, c.code, c.teacher].some(v => String(v || "").toLowerCase().includes(q)))
+      : courses;
+
+    totalPages = 1;
+    currentPage = 1;
+    document.getElementById("pagination-container").style.display = "none";
+
+    if (courses.length === 0) {
+      container.innerHTML = '<div class="fav-empty">還沒有收藏的課程<br>在課程卡片右上角點 ☆ 就能收藏，之後在這裡一次看到</div>';
+    } else if (currentDisplayedCourses.length === 0) {
+      container.innerHTML = `<div class="fav-empty">收藏裡沒有符合「${escapeHtml(term)}」的課程</div>`;
+    } else {
+      displayCourses(currentDisplayedCourses);
+    }
+  } catch (e) {
+    console.error("載入收藏失敗:", e);
+    container.innerHTML = `<div class="fav-empty">載入收藏失敗：${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// 點星星：收藏 / 取消收藏（畫面先變，失敗再改回來）
+async function toggleFavorite(courseId) {
+  const wasOn = favoriteIds.has(courseId);
+  wasOn ? favoriteIds.delete(courseId) : favoriteIds.add(courseId);
+
+  if (favoritesMode && wasOn) {
+    // 在「我的收藏」裡取消收藏 → 直接從列表拿掉
+    currentDisplayedCourses = currentDisplayedCourses.filter(c => c.id !== courseId);
+    courses = courses.filter(c => c.id !== courseId);
+    if (courses.length === 0) {
+      document.getElementById("course-results").innerHTML =
+        '<div class="fav-empty">還沒有收藏的課程<br>在課程卡片右上角點 ☆ 就能收藏，之後在這裡一次看到</div>';
+    } else {
+      displayCourses(currentDisplayedCourses);
+    }
+  } else {
+    displayCourses(currentDisplayedCourses);
+  }
+
+  try {
+    if (wasOn) {
+      await apiFetch(`/api/favorites/${encodeURIComponent(courseId)}`, { method: "DELETE" });
+    } else {
+      await apiFetch("/api/favorites", { method: "POST", body: { courseId } });
+    }
+  } catch (e) {
+    wasOn ? favoriteIds.add(courseId) : favoriteIds.delete(courseId);   // 改回原本的狀態
+    if (favoritesMode) goToPage(1, { scrollTop: false, direction: 0 });
+    else displayCourses(currentDisplayedCourses);
+    alert(`${wasOn ? "取消收藏" : "收藏"}失敗：${e.message}`);
+  }
+}
+
 // 「顯示全部」：清空搜尋框再顯示全部課程
 function clearSearchAndShowAll() {
   clearTimeout(liveSearchTimer);
   const input = document.getElementById("course-search");
   if (input) input.value = "";
+  exitFavoritesMode();
   goToPage(1, { scrollTop: false, direction: 0 });
 }
 
@@ -2335,7 +2468,9 @@ function nextPage() {
                 return;
             }
             
-            let html = `<h3>顯示 ${courseList.length} 門課程 (第 ${currentPage} 頁)</h3><div class="course-list">`;
+            let html = favoritesMode
+                ? `<h3>★ 我的收藏（${courseList.length} 門）</h3><div class="course-list">`
+                : `<h3>顯示 ${courseList.length} 門課程 (第 ${currentPage} 頁)</h3><div class="course-list">`;
             
             courseList.forEach(course => {
                 const isSelected = selectedCourses.some(c => c.id === course.id);
@@ -2344,7 +2479,9 @@ function nextPage() {
                 
                 html += `
                 <div class="course-card">
+                    <button class="fav-btn ${favoriteIds.has(course.id) ? 'on' : ''}" title="${favoriteIds.has(course.id) ? '取消收藏' : '收藏'}" onclick="toggleFavorite('${course.id}')">${favoriteIds.has(course.id) ? '★' : '☆'}</button>
                     <div class="course-title">${course.code} ${course.name}</div>
+                    ${favoritesMode && course.semester ? `<div class="course-info">學期: ${semesterLabel(course.semester)}</div>` : ''}
                     <div class="course-info">學分: ${course.credit} | 類型: ${courseTypeLabel(course)} | 年級: ${course.grade}</div>
                     <div class="course-info">系所: ${course.dept} | 教師: ${course.teacher}</div>
                     <div class="course-info">時間: ${timeText}</div>

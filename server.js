@@ -22,6 +22,7 @@ import plannerRoutes from "./planner.routes.js";
 import sectionRoutes from "./section.routes.js";
 // 【新增】課程管理者後台、個人帳號（修改密碼）
 import { createAdminRouter, createAccountRouter, ensureAdminSetup } from "./admin.routes.js";
+import { createFavoriteRouter, ensureFavoriteTable } from "./favorite.routes.js";   // 【新增】收藏課程
 
 const app = express();
 const prisma = new PrismaClient();
@@ -592,6 +593,7 @@ app.get("/api/planner", requireAuth, async (req, res) => {
 ======================= */
 app.use("/api/auth", createAccountRouter({ prisma, bcrypt }));
 app.use("/api/admin", createAdminRouter({ prisma, bcrypt }));
+app.use("/api/favorites", createFavoriteRouter({ prisma }));   // 【新增】收藏課程
 
 /* =======================
    Start / Shutdown
@@ -602,6 +604,8 @@ const server = app.listen(PORT, () => {
 
 // 【新增】啟動時確保 User 有 role 欄位，並依 ADMIN_EMAIL / ADMIN_PASSWORD 建立管理者
 ensureAdminSetup({ prisma, bcrypt }).catch(e => console.error("[admin] 初始化失敗：", e?.message || e));
+// 【新增】啟動時確保收藏資料表存在
+ensureFavoriteTable(prisma).catch(e => console.error("[favorites] 建立資料表失敗：", e?.message || e));
 
 process.on("SIGINT", async () => {
   await prisma.$disconnect();

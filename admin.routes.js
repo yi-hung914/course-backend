@@ -250,6 +250,7 @@ export function createAdminRouter({ prisma, bcrypt }) {
 
     const [planner] = await prisma.$transaction([
       prisma.planner.deleteMany({ where: { courseId: id } }),
+      prisma.favorite.deleteMany({ where: { courseId: id } }),   // 【新增】收藏也一起移除
       prisma.plannerItem.deleteMany({ where: { section: { courseId: id } } }),
       prisma.schedule.deleteMany({ where: { section: { courseId: id } } }),
       prisma.section.deleteMany({ where: { courseId: id } }),
@@ -392,6 +393,7 @@ export function createAdminRouter({ prisma, bcrypt }) {
 
     await prisma.$transaction([
       prisma.planner.deleteMany({ where: { userId: id } }),
+      prisma.favorite.deleteMany({ where: { userId: id } }),   // 【新增】收藏也一起刪除
       prisma.user.delete({ where: { id } }),   // 登入憑證、PlannerItem 會跟著刪除（onDelete: Cascade）
     ]);
     res.json({ ok: true, deleted: user.email });

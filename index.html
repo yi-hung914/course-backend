@@ -1877,6 +1877,7 @@ function resetToFirstPageAndReload() {
             toggleAssistant(false);
             asStarted = false;
             asCourses = new Map();
+            recCache = { semester: null, items: null };
             document.getElementById("as-msgs").innerHTML = "";
             clearAllFilters();
             const searchInput = document.getElementById('course-search');
@@ -2413,6 +2414,9 @@ function setupLiveSearch() {
 //   2. 找課：把條件交給後端 /api/courses 查詢
 //   3. 排課推薦：「還差 N 學分」→ 找出不衝堂、剛好湊滿學分的課程組合
 const AS_EXAMPLES = [
+  "我是資管系三年級，想加強程式能力",
+  "大二，對心理學有興趣",
+  "我想往資料分析發展",
   "週三下午有什麼通識課？",
   "2 學分的通識選修",
   "大一的專業必修",
@@ -2560,7 +2564,8 @@ function asPush(who, html) {
 function asHelpHtml(prefix) {
   return `${prefix}<br>我是規則式的選課助理，看得懂這些條件：
     <div class="as-tags"><span class="as-tag">星期（週三、週一到週三）</span><span class="as-tag">時段（上午、下午、晚上）</span><span class="as-tag">學分</span><span class="as-tag">專業／通識、必修／選修</span><span class="as-tag">年級（大一、二年級）</span><span class="as-tag">課名或老師</span></div>
-    想排課可以說「我還差 4 學分通識，週五不想上課」，我會幫你找不衝堂、剛好湊滿的組合。`;
+    想排課可以說「我還差 4 學分通識，週五不想上課」，我會幫你找不衝堂、剛好湊滿的組合。<br>
+    也可以描述你的背景和目標，例如「我是資管系三年級，想加強程式能力」，我會推薦相關的課並說明理由。`;
 }
 
 function toggleAssistant(force) {
@@ -2583,11 +2588,14 @@ async function sendAssistant(textArg) {
   input.value = "";
   asPush("user", escapeHtml(text));
   const r = asParse(text);
+  const prof = recParseProfile(text);   // 【新增】興趣導向推薦
   const hasCond = r.days.size || r.noDays.size || r.slots.size || r.credits.size || r.kinds.size || r.grades.size || r.keyword;
   const waiting = asPush("bot", "查詢中…");
   try {
     if (r.plan && r.need > 0) {
       waiting.querySelector(".as-bubble").innerHTML = await asPlan(r);
+    } else if (prof.topics.length || (prof.intent && prof.words.length)) {
+      waiting.querySelector(".as-bubble").innerHTML = await recRecommend(prof);
     } else if (r.plan && !r.need) {
       waiting.querySelector(".as-bubble").innerHTML = "想湊幾學分呢？例如：「我還差 <b>4 學分</b>通識，週五不想上課」。";
     } else if (!hasCond) {
@@ -2739,6 +2747,227 @@ async function asFav(id) {
   if (!asEnsureCourse(id)) return;
   await toggleFavorite(id);
   asRefreshButtons();
+}
+
+// ===== 【新增】興趣導向推薦（進階版，不用外部 AI）=====
+//   輸入「我是資管系三年級，想加強程式能力」→ 讀出系所、年級、目標
+//   → 依「課名相關度＋本系＋年級＋選修＋不衝堂」幫每門課打分數 → 推薦前 5 門並附理由
+//   詞庫：每個目標有「別名」（學生會怎麼說）、「強相關詞」「弱相關詞」（課名裡會出現的字）
+const REC_TOPICS = [
+  { name: "程式能力", alias: ["程式", "寫程式", "coding", "code", "軟體開發", "工程師", "開發能力", "寫code"],
+    strong: ["程式", "物件導向", "軟體", "演算法", "資料結構", "網頁", "Python", "Java", "資料庫", "系統分析", "系統規劃", "數位訊號"],
+    weak: ["資訊", "電腦", "人工智慧", "網路", "統計套裝", "R語言", "SAS", "開放軟體", "數位"] },
+  { name: "資料分析", alias: ["資料分析", "數據", "大數據", "數據分析", "統計", "data", "分析能力"],
+    strong: ["資料分析", "巨量資料", "統計", "R語言", "SAS", "資料處理", "預測分析", "多變量", "資料庫"],
+    weak: ["資料", "研究方法", "調查研究", "量性研究", "流行病學"] },
+  { name: "人工智慧", alias: ["AI", "人工智慧", "機器學習", "深度學習", "智慧科技"],
+    strong: ["人工智慧", "智慧", "機器學習"], weak: ["巨量資料", "程式", "資訊科技", "數位"] },
+  { name: "網頁與網路", alias: ["網頁", "網站", "前端", "後端", "網路", "全端"],
+    strong: ["網頁", "網路程式", "網路", "電子商務"], weak: ["多媒體", "數位", "資訊"] },
+  { name: "資訊安全", alias: ["資安", "資訊安全", "駭客", "網路安全"],
+    strong: ["資訊安全"], weak: ["網路", "資訊"] },
+  { name: "資訊系統與醫療資訊", alias: ["資訊系統", "醫療資訊", "系統分析", "資訊管理", "資訊科技"],
+    strong: ["資訊系統", "醫療資訊", "醫院電腦化", "資訊管理", "系統分析", "資訊科技", "知識管理", "護理資訊"],
+    weak: ["資訊", "專案管理", "電子商務"] },
+  { name: "管理與創業", alias: ["管理", "創業", "經營", "當老闆", "領導", "管理能力"],
+    strong: ["管理", "創業", "策略", "經營", "組織", "專案"], weak: ["財務", "會計", "品質", "行銷", "決策"] },
+  { name: "行銷", alias: ["行銷", "廣告", "品牌", "電商", "銷售", "業務"],
+    strong: ["行銷", "顧客關係", "電子商務", "產品設計", "服務創新"], weak: ["管理", "創意"] },
+  { name: "財務會計", alias: ["會計", "財務", "理財", "經濟", "金融", "財會"],
+    strong: ["會計", "財務", "成本", "經濟"], weak: ["管理", "保險"] },
+  { name: "健康照護", alias: ["醫療", "健康", "護理", "照護", "臨床", "醫院"],
+    strong: ["健康照護", "醫療", "護理", "照護", "健康"], weak: ["臨床", "病", "醫"] },
+  { name: "心理與諮商", alias: ["心理", "諮商", "情緒", "壓力", "療癒", "輔導"],
+    strong: ["心理", "諮商", "情緒", "壓力", "輔導", "悲傷"], weak: ["溝通", "治療", "生死"] },
+  { name: "外語能力", alias: ["英文", "英語", "外語", "語言能力", "多益", "日文", "日語", "口說", "托福"],
+    strong: ["英文", "英語", "日語", "台語"], weak: ["簡報", "寫作", "國際"] },
+  { name: "運動健身", alias: ["運動", "健身", "體能", "瑜珈", "重訓", "球類"],
+    strong: ["運動", "體適能", "瑜珈", "肌力", "體育", "球", "游泳", "皮拉提斯", "有氧"], weak: ["健康", "身體活動"] },
+  { name: "藝術人文", alias: ["藝術", "音樂", "美術", "文化", "電影", "人文", "文學", "美學"],
+    strong: ["藝術", "音樂", "美學", "文化", "電影", "文學", "戲劇", "影像", "哲學", "文明"], weak: ["創意", "生活"] },
+  { name: "多媒體設計", alias: ["平面設計", "視覺設計", "剪輯", "影片", "動畫", "多媒體", "美編", "影音"],
+    strong: ["多媒體", "影音", "動畫", "剪輯", "電子書", "腳本", "網頁設計"], weak: ["設計", "數位", "媒體"] },
+  { name: "研究與升學", alias: ["研究所", "升學", "論文", "做研究", "讀研究所", "考研"],
+    strong: ["研究方法", "研究概論", "統計", "文獻", "論文", "量性研究"], weak: ["研究", "專題"] },
+  { name: "就業與實習", alias: ["就業", "找工作", "實習", "職涯", "職場", "工作經驗"],
+    strong: ["實習", "職場", "生涯", "見習"], weak: ["實務", "專題", "創業"] },
+  { name: "高齡與長照", alias: ["長照", "老人", "高齡", "銀髮", "失智", "長期照護"],
+    strong: ["高齡", "老人", "長期照護", "銀髮", "失智", "老化"], weak: ["照護", "安寧"] },
+  { name: "觀光休閒", alias: ["觀光", "旅遊", "休閒", "餐飲", "導遊", "飯店"],
+    strong: ["觀光", "旅遊", "休閒", "遊憩", "餐飲", "民宿", "領隊"], weak: ["服務", "文化"] },
+];
+// 系所簡稱（「資管系」「我是資管」）
+const REC_DEPT_ABBR = { "資管": "資訊管理", "健管": "健康事業管理", "長照": "長期照護", "語聽": "語言治療與聽力", "休閒": "休閒產業與健康促進",
+  "運保": "運動保健", "生諮": "生死與健康心理諮商", "幼保": "嬰幼兒保育", "高照": "高齡健康照護", "醫教": "醫護教育", "護理": "護理" };
+let recCache = { semester: null, items: null };
+
+// 讀出背景（系所、年級）與目標（興趣主題、想學的關鍵字）
+function recParseProfile(text) {
+  const raw = String(text || "");
+  const t = raw.replace(/\s+/g, "");
+  const prof = { deptCodes: [], deptName: "", grade: 0, topics: [], words: [], phrases: [], intent: false };
+
+  // 系所：比對系所全名（去掉「四年制」等字），或簡稱＋系
+  const cores = Object.entries(DEPT_MAP).map(([code, name]) => [code, name, name.replace(/^(四年制|二年制|進修部)/, "").replace(/\(.*\)$/, "")]);
+  for (const [code, name, core] of cores) {
+    const base = core.replace(/系$/, "");
+    if (base.length >= 2 && (t.includes(core) || t.includes(base + "系"))) {
+      const preferFour = !/二技|二年制|進修/.test(t);
+      if (!preferFour || /四年制/.test(name) || !cores.some(([, n2, c2]) => c2 === core && /四年制/.test(n2))) {
+        if (!prof.deptCodes.includes(code)) prof.deptCodes.push(code);
+        prof.deptName = prof.deptName || core;
+      }
+    }
+  }
+  if (prof.deptCodes.length === 0) {
+    for (const [abbr, full] of Object.entries(REC_DEPT_ABBR)) {
+      if (new RegExp(abbr + "(系|[一二三四]年級|大[一二三四]|的學生)|(我是|我讀|就讀)" + abbr).test(t)) {
+        const hit = cores.filter(([, , core]) => core.startsWith(full));
+        const four = hit.filter(([, n]) => /四年制/.test(n));
+        (four.length ? four : hit).forEach(([code, , core]) => { prof.deptCodes.push(code); prof.deptName = prof.deptName || core; });
+        if (prof.deptCodes.length) break;
+      }
+    }
+  }
+
+  // 年級
+  const g = t.match(/大([一二三四])|([一二三四1-4])年級/);
+  if (g) prof.grade = g[1] ? AS_DAY[g[1]] : (/\d/.test(g[2]) ? Number(g[2]) : AS_DAY[g[2]]);
+
+  // 目標：「想加強 X」「對 X 有興趣」……
+  const wants = [];
+  for (const m of t.matchAll(/(?:增進|加強|提升|培養|精進|學習|想學|多學|往|朝|走|進入|從事|想當|成為|補強)(?:我的|一些|一點|更多)?([^，,。！!？?；;、]{2,14})/g)) wants.push(m[1]);
+  for (const m of t.matchAll(/對([^，,。！!？?]{2,12})(?:很|比較|有點)?(?:有興趣|感興趣|好奇)/g)) wants.push(m[1]);
+  for (const m of t.matchAll(/(?:興趣是|目標是|喜歡)([^，,。！!？?]{2,12})/g)) wants.push(m[1]);
+  prof.intent = wants.length > 0 || /推薦|適合我|建議我|該修|要修什麼|修什麼/.test(t);
+
+  // 比對興趣前，先把系所名稱拿掉（「資訊管理系」不代表想學「管理」）
+  let rest = t;
+  if (prof.deptName) rest = rest.split(prof.deptName).join(" ").split(prof.deptName.replace(/系$/, "")).join(" ");
+  for (const abbr of Object.keys(REC_DEPT_ABBR)) rest = rest.replace(new RegExp(abbr + "系"), " ");
+  const lower = rest.toLowerCase();
+  for (const topic of REC_TOPICS) {
+    if (topic.alias.some(a => lower.includes(a.toLowerCase()))) prof.topics.push(topic);
+  }
+  // 詞庫沒有的目標（例如「想學中醫」）→ 直接當關鍵字比對課名
+  for (let w of wants) {
+    w = w.replace(/(的)?(能力|方面|領域|相關|的課|課程|技能|知識|技術|專業|發展)+$/, "").replace(/^(的|有關|關於)/, "");
+    if (w.length >= 2) prof.phrases.push(w);   // 原句裡想學的詞，課名直接出現會再加分
+    if (w.length >= 2 && !prof.topics.some(tp => tp.alias.some(a => w.toLowerCase().includes(a.toLowerCase())))) prof.words.push(w);
+  }
+  return prof;
+}
+
+async function recLoadAll() {
+  const sem = selectedSemester || "";
+  if (recCache.items && recCache.semester === sem) return recCache.items;
+  const all = [];
+  for (let page = 1; page <= 20; page++) {
+    const data = await apiFetch(`/api/courses?page=${page}&pageSize=200${sem ? `&semester=${sem}` : ""}`);
+    all.push(...(data.items || []));
+    if (page >= (data.totalPages || 1)) break;
+  }
+  const origLog = console.log;
+  console.log = () => {};
+  try {
+    recCache = { semester: sem, items: all.map(c => ({ ...normalizeCourseFromApi(c), required: c.required, isGeneral: c.type === "general", gradeNum: Number(c.grade) || 0 })) };
+  } finally {
+    console.log = origLog;
+  }
+  return recCache.items;
+}
+
+// 幫一門課打分數，並記下理由
+function recScore(c, prof) {
+  let score = 0;
+  const reasons = [];
+  const name = c.name.toLowerCase();
+
+  // 1. 課名相關度
+  const hitWords = [];
+  for (const tp of prof.topics) {
+    const s = tp.strong.filter(w => name.includes(w.toLowerCase()));
+    const w = tp.weak.filter(x => name.includes(x.toLowerCase()) && !s.some(y => y.includes(x)));
+    if (s.length || w.length) {
+      score += (s.length ? 6 + (s.length > 1 ? 2 : 0) : 0) + Math.min(w.length, 2) * 2;
+      hitWords.push({ topic: tp.name, words: [...s, ...w] });
+    }
+  }
+  for (const word of prof.words) {
+    if (name.includes(word.toLowerCase())) { score += 8; hitWords.push({ topic: word, words: [word] }); }
+  }
+  if (score === 0) return null;   // 跟目標無關的課不推
+  hitWords.forEach(h => reasons.push(`課名有「${h.words.slice(0, 2).join("、")}」，和你想加強的「${h.topic}」相關`));
+  const phrase = prof.phrases.find(ph => ph.length >= 2 && name.includes(ph.toLowerCase()) && !prof.words.includes(ph));
+  if (phrase) {
+    score += 5;
+    if (!hitWords.some(h => h.words.includes(phrase))) reasons.unshift(`課名直接包含你說的「${phrase}」`);
+  }
+
+  // 2. 系所
+  if (prof.deptCodes.length) {
+    if (prof.deptCodes.includes(c.deptCode)) { score += 3; reasons.push(`${c.dept}開課（本系）`); }
+    else if (c.isGeneral) { score += 1; reasons.push("通識課，各系都能修"); }
+    else { score -= 1; reasons.push(`外系課（${c.dept}），要確認能否跨系選修`); }
+  } else if (c.isGeneral) {
+    reasons.push("通識課，各系都能修");
+  }
+
+  // 3. 年級
+  if (prof.grade && c.gradeNum) {
+    if (c.gradeNum === prof.grade) { score += 2; reasons.push(`建議 ${c.gradeNum} 年級修，正適合你`); }
+    else if (c.gradeNum === prof.grade + 1) { score += 1; reasons.push(`${c.gradeNum} 年級的課，可以提早修`); }
+    else if (c.gradeNum < prof.grade) { score += c.required ? -5 : 0; reasons.push(c.required ? `${c.gradeNum} 年級必修，你可能已經修過` : `${c.gradeNum} 年級就能修的選修`); }
+    else { score -= 1; reasons.push(`${c.gradeNum} 年級的課，難度可能較高`); }
+  }
+
+  // 4. 選修（自己選的空間）／必修
+  if (!c.required) score += 1;
+  reasons.push(`${courseTypeLabel(c)}・${c.credit} 學分`);
+
+  // 5. 跟目前課表衝堂嗎
+  if (!c.time.length) { reasons.push("沒有上課時間資料"); }
+  else if (checkTimeConflict(c)) { score -= 3; reasons.push("⚠ 跟你目前的課表衝堂"); }
+  else { reasons.push("跟你目前的課表不衝堂"); }
+
+  return { score, reasons };
+}
+
+async function recRecommend(prof) {
+  const items = await recLoadAll();
+  const picked = new Map();   // 同名的課只留分數最高的一班
+  for (const c of items) {
+    if (selectedCourses.some(x => x.id === c.id)) continue;
+    const r = recScore(c, prof);
+    if (!r) continue;
+    const old = picked.get(c.name);
+    if (!old || r.score > old.score) picked.set(c.name, { c, ...r });
+  }
+  const list = [...picked.values()].sort((a, b) => b.score - a.score || a.c.gradeNum - b.c.gradeNum);
+
+  const tags = [];
+  if (prof.deptName) tags.push(`系所：${prof.deptName}`);
+  if (prof.grade) tags.push(`${prof.grade} 年級`);
+  prof.topics.forEach(tp => tags.push(`目標：${tp.name}`));
+  prof.words.forEach(w => tags.push(`想學：${escapeHtml(w)}`));
+  let html = `我理解的背景與目標：<div class="as-tags">${tags.map(x => `<span class="as-tag">${x}</span>`).join("")}</div>`;
+
+  if (list.length === 0) {
+    return html + "在這個學期的課程裡，找不到和你目標相關的課。可以換個說法，例如「想加強資料分析」「對心理學有興趣」。";
+  }
+  const top = list.slice(0, 5);
+  const best = top[0].score;
+  html += `從 ${items.length} 門課中，找到 <b>${list.length}</b> 門相關的課，最推薦這 ${top.length} 門：`;
+  top.forEach((x, i) => {
+    const stars = Math.max(1, Math.min(5, Math.round((x.score / best) * 5)));
+    const card = asCourseHtml(x.c).replace('<div class="t">', `<div class="t">${i + 1}. `);
+    html += card.replace('<div class="b">',
+      `<div class="i" style="color:#f5a623;">${"★".repeat(stars)}${"☆".repeat(5 - stars)} 相符度</div>
+       <ul style="margin:4px 0 0 18px;font-size:.84em;color:#444;">${x.reasons.map(r => `<li>${escapeHtml(r)}</li>`).join("")}</ul>
+       <div class="b">`);
+  });
+  html += `<div class="i" style="margin-top:8px;font-size:.8em;color:#888;">推薦方式：課名和目標的相關程度為主，再依本系、年級、選修、是否衝堂加減分。推薦僅供參考，請以學校選課系統為準。</div>`;
+  return html;
 }
 
 // ===== 【新增】收藏課程 =====

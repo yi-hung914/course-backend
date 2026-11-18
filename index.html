@@ -127,7 +127,14 @@
         }
         
         /* 【新增】課表標題旁顯示目前學期 */
-        .schedule-sem-label { font-size: 0.6em; font-weight: normal; color: #555; margin-left: 6px; white-space: nowrap; }
+        /* 【修改】課表標題旁改成學期下拉選單，可以直接切換看各學期的課表 */
+        .schedule-sem-select {
+            font-size: 0.55em; font-weight: normal; color: #007d66;
+            margin-left: 10px; padding: 4px 28px 4px 10px; vertical-align: middle;
+            border: 2px solid #cfe8e2; border-radius: 8px; background-color: #f4fbf9;
+            cursor: pointer; max-width: 100%;
+        }
+        .schedule-sem-select:hover, .schedule-sem-select:focus { border-color: #007d66; outline: none; }
 
         .card h2::after {
             content: "";
@@ -1187,7 +1194,7 @@
             <!-- 課表區塊 -->
             <div class="section-container" id="section-schedule">
                 <div class="card">
-                    <h2>我的擬排課表 <span id="schedule-sem-label" class="schedule-sem-label"></span></h2>
+                    <h2>我的擬排課表 <select id="schedule-sem-select" class="schedule-sem-select" onchange="onScheduleSemesterChange()" title="切換要看的學期課表" style="display:none"></select></h2>
                     
                     <!-- 衝堂警告 -->
                     <div id="conflict-warning" class="conflict-warning">
@@ -2083,9 +2090,27 @@ function nextPage() {
         function isScheduleDirty() {
             return !!selectedSemester && scheduleKey() !== savedScheduleKey;
         }
+        // 【修改】課表標題旁的學期下拉選單：選項跟上方「學年學期」一樣，兩邊永遠同步
         function updateScheduleSemesterLabel() {
-            const el = document.getElementById("schedule-sem-label");
-            if (el) el.textContent = selectedSemester ? `（${semesterLabel(selectedSemester)}）` : "";
+            const el = document.getElementById("schedule-sem-select");
+            const main = document.getElementById("semester-select");
+            if (!el) return;
+            if (!selectedSemester || !main) { el.style.display = "none"; return; }
+            const opts = [...main.options].map(o => o.value).filter(Boolean);
+            if (el.dataset.opts !== opts.join(",")) {
+                el.innerHTML = opts.map(v => `<option value="${v}">${semesterLabel(v)}</option>`).join("");
+                el.dataset.opts = opts.join(",");
+            }
+            el.value = selectedSemester;
+            el.style.display = "";
+        }
+        // 在課表這邊換學期 = 跟上方選單換學期一樣（沒存的變更一樣會先詢問）
+        async function onScheduleSemesterChange() {
+            const el = document.getElementById("schedule-sem-select");
+            const main = document.getElementById("semester-select");
+            main.value = el.value;
+            await onSemesterChange();
+            updateScheduleSemesterLabel();   // 取消切換時，選單跳回原本的學期
         }
         let filterListenersReady = false; // 避免登入時重複綁定事件（重複綁定會讓點一下等於點兩下）
         let favoriteIds = new Set();      // 【新增】已收藏的課程 id
@@ -2160,6 +2185,7 @@ function nextPage() {
                 console.warn("讀取學期清單失敗：", e);
                 selectedSemester = "";
                 select.innerHTML = '<option value="">全部學期</option>';
+                updateScheduleSemesterLabel();
             }
         }
 

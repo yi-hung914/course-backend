@@ -568,6 +568,9 @@
             transition: all 0.2s;
         }
         
+        .period-chip { border: 0; font-family: inherit; }
+        .period-chip:focus-visible { outline: 2px solid #007d66; outline-offset: 3px; }
+
         .filter-item:hover {
             background-color: #e0e0e0;
         }
@@ -1100,6 +1103,25 @@
                         <div class="filter-item" data-filter="day-5">週五</div>
                     </div>
                     
+                    <!-- 上課節數：可複選，與星期共同篩選同一筆上課時間 -->
+                    <div class="filter-container" id="period-filters" role="group" aria-label="上課節數">
+                        <span class="filter-label">上課節數：</span>
+                        <button type="button" class="filter-item period-chip" data-filter="period-1" aria-pressed="false">第 1 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-2" aria-pressed="false">第 2 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-3" aria-pressed="false">第 3 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-4" aria-pressed="false">第 4 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-5" aria-pressed="false">第 5 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-6" aria-pressed="false">第 6 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-7" aria-pressed="false">第 7 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-8" aria-pressed="false">第 8 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-9" aria-pressed="false">第 9 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-10" aria-pressed="false">第 10 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-11" aria-pressed="false">第 11 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-12" aria-pressed="false">第 12 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-13" aria-pressed="false">第 13 節</button>
+                        <button type="button" class="filter-item period-chip" data-filter="period-14" aria-pressed="false">第 14 節</button>
+                    </div>
+
                     <!-- 課程結果區域 -->
                     <div id="course-results">
                         <p>請先選擇系所或直接搜尋課程。</p>
@@ -2041,22 +2063,25 @@ function nextPage() {
         let selectedTypes = new Set();    // "core"（專業必修）、"elective"（專業選修）、"gen-core"（通識必修）、"gen-elective"（通識選修）
         let selectedGrades = new Set();   // "1" ~ "4"
         let selectedDays = new Set();     // 【新增】上課星期 "1" ~ "5"
+        let selectedPeriods = new Set(); // 上課節數 "1" ~ "14"
         let selectedSemester = "";        // 【新增】學年學期，例如 "1141"；空字串 = 不限
         let filterListenersReady = false; // 避免登入時重複綁定事件（重複綁定會讓點一下等於點兩下）
         let favoriteIds = new Set();      // 【新增】已收藏的課程 id
         let favoritesMode = false;        // 【新增】目前是否在看「我的收藏」
 
         function refreshFilterChips() {
-            const noFilter = !favoritesMode && selectedTypes.size === 0 && selectedGrades.size === 0 && selectedDays.size === 0;
+            const noFilter = !favoritesMode && selectedTypes.size === 0 && selectedGrades.size === 0 && selectedDays.size === 0 && selectedPeriods.size === 0;
             document.querySelectorAll('.filter-item').forEach(item => {
                 const f = item.getAttribute("data-filter");
                 const on = f === "all" ? noFilter
                          : f === "fav" ? favoritesMode
                          : favoritesMode ? false   // 看收藏時，其他篩選暫時不作用
+                         : f.startsWith("period-") ? selectedPeriods.has(f.slice(7))
                          : f.startsWith("day-") ? selectedDays.has(f.slice(4))
                          : /^\d$/.test(f) ? selectedGrades.has(f)
                          : selectedTypes.has(f);
                 item.classList.toggle('active', on);
+                if (f.startsWith("period-")) item.setAttribute("aria-pressed", String(on));
             });
         }
 
@@ -2072,6 +2097,9 @@ function nextPage() {
             }
             if (selectedDays.size > 0) {
                 params += `&day=${[...selectedDays].sort().join(",")}`;
+            }
+            if (selectedPeriods.size > 0) {
+                params += `&period=${[...selectedPeriods].sort((a, b) => Number(a) - Number(b)).join(",")}`;
             }
             if (selectedSemester) {
                 params += `&semester=${selectedSemester}`;
@@ -2120,6 +2148,7 @@ function nextPage() {
             selectedTypes.clear();
             selectedGrades.clear();
             selectedDays.clear();
+            selectedPeriods.clear();
             refreshFilterChips();
         }
 
@@ -2139,8 +2168,12 @@ function nextPage() {
                         // 【新增】看收藏時點其他篩選 → 離開收藏，改用這個篩選
                         favoritesMode = false;
                         clearAllFilters();
-                        if (f.startsWith("day-")) selectedDays.add(f.slice(4));
+                        if (f.startsWith("period-")) selectedPeriods.add(f.slice(7));
+                        else if (f.startsWith("day-")) selectedDays.add(f.slice(4));
                         else (/^\d$/.test(f) ? selectedGrades : selectedTypes).add(f);
+                    } else if (f.startsWith("period-")) {
+                        const p = f.slice(7);
+                        selectedPeriods.has(p) ? selectedPeriods.delete(p) : selectedPeriods.add(p);
                     } else if (f.startsWith("day-")) {
                         const d = f.slice(4);
                         selectedDays.has(d) ? selectedDays.delete(d) : selectedDays.add(d);
@@ -2573,6 +2606,7 @@ function setSearchMode(mode) {
   document.getElementById("search-container").classList.toggle("smart", smart);
   document.getElementById("course-filters").style.display = smart ? "none" : "";
   document.getElementById("day-filters").style.display = smart ? "none" : "";
+  document.getElementById("period-filters").style.display = smart ? "none" : "";
   document.getElementById("search-go-btn").textContent = smart ? "送出" : "搜尋課程";
   const input = document.getElementById("course-search");
   input.placeholder = smart

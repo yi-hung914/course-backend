@@ -125,10 +125,23 @@ async function buildDeptWhere(req) {
     .map(s => s.trim())
     .filter(s => SLOT_RANGE[s]))];
 
+  // period=2,4：任一選取節數落在上課區間內（資料的 end 為含尾節）。
+  const periodList = [...new Set(String(req.query.period ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => /^\d+$/.test(s))
+    .map(Number)
+    .filter(n => n >= 1 && n <= 14))];
+
   const scheduleWhere = {};
   if (dayList.length > 0) scheduleWhere.day = { in: dayList };
   if (slotList.length > 0) {
     scheduleWhere.OR = slotList.map(s => ({ start: { gte: SLOT_RANGE[s][0], lte: SLOT_RANGE[s][1] } }));
+  }
+  if (periodList.length > 0) {
+    scheduleWhere.AND = [{ OR: periodList.map(period => ({
+      start: { lte: period }, end: { gte: period },
+    })) }];
   }
   if (Object.keys(scheduleWhere).length > 0) {
     where.sections = { some: { schedules: { some: scheduleWhere } } };

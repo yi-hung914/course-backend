@@ -163,6 +163,9 @@
         .login-card h1 {
             color: #007d66;
             margin-bottom: 10px;
+            /* 【修改】標題固定一行：字級隨螢幕寬度縮放，最大 1.7em */
+            white-space: nowrap;
+            font-size: clamp(1.15em, 6.2vw, 1.7em);
         }
         
         .login-card input {

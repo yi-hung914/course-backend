@@ -948,9 +948,9 @@
                     <!-- 篩選器 -->
                     <div class="filter-container" id="course-filters">
                         <div class="filter-item active" data-filter="all">全部課程</div>
-                        <!-- 【修改】課程類別分成四種，互不重疊：必修、選修（專業課）、通識必修、通識選修 -->
-                        <div class="filter-item" data-filter="core">必修課程</div>
-                        <div class="filter-item" data-filter="elective">選修課程</div>
+                        <!-- 【修改】課程類別分成四種，互不重疊：專業必修、專業選修、通識必修、通識選修 -->
+                        <div class="filter-item" data-filter="core">專業必修</div>
+                        <div class="filter-item" data-filter="elective">專業選修</div>
                         <div class="filter-item" data-filter="gen-core">通識必修</div>
                         <div class="filter-item" data-filter="gen-elective">通識選修</div>
                         <div class="filter-item" data-filter="1">一年級</div>
@@ -1886,14 +1886,14 @@ function nextPage() {
 
         // ===== 篩選器功能 =====
         // 【修改】可以複選，條件分成三組，同組是「或」，組和組之間是「而且」：
-        //   - 課程類別：必修、選修（專業課）、通識必修、通識選修，四種互不重疊
-        //       例：必修 + 選修 = 所有專業課；必修 + 通識必修 = 所有必修課
+        //   - 課程類別：專業必修、專業選修、通識必修、通識選修，四種互不重疊
+        //       例：專業必修 + 專業選修 = 所有專業課；專業必修 + 通識必修 = 所有必修課
         //   - 年級：例如 一年級 + 二年級 = 一或二年級
         //   - 上課星期：例如 週一 + 週三 = 週一或週三有上課
-        //   例：必修 + 一年級 = 一年級的必修課
+        //   例：專業必修 + 一年級 = 一年級的專業必修課
         //   「全部課程」= 清掉所有條件
         //   篩選交給後端做，每頁筆數才會固定、不會出現空頁
-        let selectedTypes = new Set();    // "core"（必修）、"elective"（選修）、"gen-core"（通識必修）、"gen-elective"（通識選修）
+        let selectedTypes = new Set();    // "core"（專業必修）、"elective"（專業選修）、"gen-core"（通識必修）、"gen-elective"（通識選修）
         let selectedGrades = new Set();   // "1" ~ "4"
         let selectedDays = new Set();     // 【新增】上課星期 "1" ~ "5"
         let selectedSemester = "";        // 【新增】學年學期，例如 "1141"；空字串 = 不限

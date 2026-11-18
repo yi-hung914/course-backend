@@ -21,7 +21,7 @@ async function semesterCounts() {
   semesterCache = { at: Date.now(), counts: new Map(groups.map(g => [g.semester, g._count._all])) };
   return semesterCache.counts;
 }
-async function resolveSemester(requested) {
+export async function resolveSemester(requested) {
   const sem = String(requested || "").trim();
   const counts = await semesterCounts();
   return sem && counts.get(sem) ? sem : COURSE_DATA_SEMESTER;

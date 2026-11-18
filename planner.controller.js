@@ -1,4 +1,5 @@
 import prisma from "./prismaClient.js";
+import { resolveSemester } from "./course.controller.js";
 
 
 // 如果你 prismaClient.js 是 export default prisma，就改成：
@@ -101,7 +102,15 @@ export async function addPlannerItem(req, res) {
       select: { courseId: true },
     });
 
-    const existingCourseIds = userPlanners.map((p) => p.courseId);
+    // 【修改】只跟「同一學期」的已選課程比衝堂（不同學期本來就不會衝）
+    const target = await prisma.course.findUnique({ where: { id: courseId }, select: { semester: true } });
+    const sameSem = userPlanners.length && target
+      ? await prisma.course.findMany({
+          where: { id: { in: userPlanners.map((p) => p.courseId) }, semester: target.semester },
+          select: { id: true },
+        })
+      : [];
+    const existingCourseIds = sameSem.map((c) => c.id);
 
     // ===== Step C：衝堂檢查 =====
     if (existingCourseIds.length > 0 && newSchedules.length > 0) {
@@ -301,7 +310,10 @@ return res.status(409).json({
 //   身分一樣沿用 x-user-id（跟上面的 addPlannerItem 相同做法）。
 // =====================================================================
 
-// PUT /api/planner   body: { courseIds: ["...", "..."] }
+// PUT /api/planner   body: { courseIds: ["...", "..."], semester: "1141" }
+//   【修改】課表綁學期：有帶 semester 時，只覆蓋「這個學期」的課表，
+//   其他學期存過的課表不會被清掉；而且只收屬於這個學期的課。
+//   沒帶 semester → 跟以前一樣整份覆蓋（相容舊版前端）。
 export async function savePlanner(req, res) {
   try {
     const userId = req.header("x-user-id");
@@ -314,16 +326,30 @@ export async function savePlanner(req, res) {
       return res.status(400).json({ ok: false, message: "courseIds 必須是陣列" });
     }
     const courseIds = [...new Set(raw.map(String).filter(Boolean))];
+    const semester = req.body?.semester ? await resolveSemester(req.body.semester) : null;
 
-    // 只存資料庫裡真的存在的課程，避免存到錯的 id
+    // 只存資料庫裡真的存在的課程（有指定學期時，也必須是該學期的課）
     const existing = await prisma.course.findMany({
-      where: { id: { in: courseIds } },
+      where: { id: { in: courseIds }, ...(semester ? { semester } : {}) },
       select: { id: true },
     });
     const validIds = existing.map(c => c.id);
 
+    // 要刪掉的舊資料：有學期 → 只刪這學期的；沒學期 → 全部
+    let deleteWhere = { userId };
+    if (semester) {
+      const rows = await prisma.planner.findMany({ where: { userId }, select: { courseId: true } });
+      const inSem = rows.length
+        ? await prisma.course.findMany({
+            where: { id: { in: rows.map(r => r.courseId) }, semester },
+            select: { id: true },
+          })
+        : [];
+      deleteWhere = { userId, courseId: { in: inSem.map(c => c.id) } };
+    }
+
     await prisma.$transaction([
-      prisma.planner.deleteMany({ where: { userId } }),
+      prisma.planner.deleteMany({ where: deleteWhere }),
       prisma.planner.createMany({
         data: validIds.map(courseId => ({ userId, courseId })),
         skipDuplicates: true,
@@ -332,8 +358,9 @@ export async function savePlanner(req, res) {
 
     return res.json({
       ok: true,
+      semester,
       saved: validIds.length,
-      skipped: courseIds.length - validIds.length,   // 找不到的課程數
+      skipped: courseIds.length - validIds.length,   // 找不到（或不是這學期）的課程數
     });
   } catch (err) {
     console.error("savePlanner ERROR =", err);
@@ -341,7 +368,8 @@ export async function savePlanner(req, res) {
   }
 }
 
-// GET /api/planner   回傳這個使用者存過的課程（含班別和上課時間，前端可直接畫課表）
+// GET /api/planner?semester=1141   回傳這個使用者存過的課程（含班別和上課時間，前端可直接畫課表）
+//   【修改】有帶 semester → 只回傳該學期的課；沒帶 → 全部（相容舊版）
 export async function getPlanner(req, res) {
   try {
     const userId = req.header("x-user-id");
@@ -355,14 +383,16 @@ export async function getPlanner(req, res) {
       select: { courseId: true },
     });
 
+    const semester = req.query?.semester ? await resolveSemester(req.query.semester) : null;
+
     const courses = rows.length
       ? await prisma.course.findMany({
-          where: { id: { in: rows.map(r => r.courseId) } },
+          where: { id: { in: rows.map(r => r.courseId) }, ...(semester ? { semester } : {}) },
           include: { sections: { include: { schedules: true } } },
         })
       : [];
 
-    return res.json({ ok: true, items: courses });
+    return res.json({ ok: true, semester, items: courses });
   } catch (err) {
     console.error("getPlanner ERROR =", err);
     return res.status(500).json({ ok: false, message: "伺服器錯誤，讀取課表失敗" });

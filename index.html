@@ -126,6 +126,9 @@
             position: relative;
         }
         
+        /* 【新增】課表標題旁顯示目前學期 */
+        .schedule-sem-label { font-size: 0.6em; font-weight: normal; color: #555; margin-left: 6px; white-space: nowrap; }
+
         .card h2::after {
             content: "";
             position: absolute;
@@ -1184,7 +1187,7 @@
             <!-- 課表區塊 -->
             <div class="section-container" id="section-schedule">
                 <div class="card">
-                    <h2>我的擬排課表</h2>
+                    <h2>我的擬排課表 <span id="schedule-sem-label" class="schedule-sem-label"></span></h2>
                     
                     <!-- 衝堂警告 -->
                     <div id="conflict-warning" class="conflict-warning">
@@ -1784,11 +1787,11 @@ function resetToFirstPageAndReload() {
                 document.getElementById("app-content").style.display = "block";
                 document.getElementById('display-user-id').textContent = user;
 
-                // 【新增】登入後把之前儲存的課表讀回來（不等它，課程列表照常載入）
-                loadSavedSchedule();
                 loadFavorites();   // 【新增】讀取收藏（課程卡片的星星）
 
                 await loadSemesters();   // 【新增】先決定學期，課程列表才會只顯示該學期
+                // 【修改】課表綁學期：學期決定好之後，才讀回「這個學期」存過的課表（不等它，課程列表照常載入）
+                loadSavedSchedule();
                 await showAllCourses();
                 setupFilterListeners();
             } catch (e) {
@@ -1869,6 +1872,7 @@ function resetToFirstPageAndReload() {
             localStorage.removeItem("userId");
 
             selectedCourses = [];
+            savedScheduleKey = "";
             selectedDepartments = [];
             updateSelectedCoursesList();
             updateScheduleDisplay();
@@ -2065,6 +2069,24 @@ function nextPage() {
         let selectedDays = new Set();     // 【新增】上課星期 "1" ~ "5"
         let selectedPeriods = new Set(); // 上課節數 "1" ~ "14"
         let selectedSemester = "";        // 【新增】學年學期，例如 "1141"；空字串 = 不限
+        let semesterDataMap = new Map();  // 【新增】學期 → 實際課程資料的學期（沒自己資料的學期會用預設那份）
+        let savedScheduleKey = "";        // 【新增】最後一次「讀取 / 儲存」時的課表內容，用來判斷有沒有沒存的變更
+        let scheduleLoadId = 0;           // 【新增】快速切學期時，只採用最後一次讀到的課表
+
+        // 這個學期的課程實際是哪個學期的資料
+        function effectiveSemester(sem = selectedSemester) {
+            return semesterDataMap.get(sem) || sem || "";
+        }
+        function scheduleKey(list = selectedCourses) {
+            return list.map(c => c.id).sort().join(",");
+        }
+        function isScheduleDirty() {
+            return !!selectedSemester && scheduleKey() !== savedScheduleKey;
+        }
+        function updateScheduleSemesterLabel() {
+            const el = document.getElementById("schedule-sem-label");
+            if (el) el.textContent = selectedSemester ? `（${semesterLabel(selectedSemester)}）` : "";
+        }
         let filterListenersReady = false; // 避免登入時重複綁定事件（重複綁定會讓點一下等於點兩下）
         let favoriteIds = new Set();      // 【新增】已收藏的課程 id
         let favoritesMode = false;        // 【新增】目前是否在看「我的收藏」
@@ -2120,6 +2142,8 @@ function nextPage() {
                 const data = await apiFetch("/api/courses/semesters");
                 const items = data.items || [];
                 if (items.length === 0) throw new Error("沒有學期資料");
+                // 【新增】記住每個學期實際用哪一份課程資料（沒有自己資料的學期 = 用預設那份）
+                semesterDataMap = new Map(items.map(it => [it.semester, it.hasOwnData === false && data.dataSemester ? data.dataSemester : it.semester]));
 
                 select.innerHTML = items
                     .map(it => `<option value="${it.semester}">${semesterLabel(it.semester)}（${it.count} 門課）</option>`)
@@ -2130,6 +2154,7 @@ function nextPage() {
                     selectedSemester = items[0].semester;
                 }
                 select.value = selectedSemester;
+                updateScheduleSemesterLabel();
             } catch (e) {
                 // 後端還沒更新（沒有學期清單）時，就不篩學期
                 console.warn("讀取學期清單失敗：", e);
@@ -2138,9 +2163,28 @@ function nextPage() {
             }
         }
 
-        function onSemesterChange() {
-            selectedSemester = document.getElementById("semester-select").value;
+        // 【修改】課表綁學期：切換學期 = 換成那個學期的課表
+        //   目前學期的課表有改過還沒儲存 → 先問要不要儲存，避免切過去就不見
+        async function onSemesterChange() {
+            const select = document.getElementById("semester-select");
+            const next = select.value;
+            if (next === selectedSemester) return;
+
+            if (isScheduleDirty()) {
+                const label = semesterLabel(selectedSemester) || "目前";
+                if (confirm(`「${label}」的課表有變更還沒儲存。\n\n按「確定」：先儲存，再切換學期\n按「取消」：選擇不儲存或留在這學期`)) {
+                    const ok = await saveSchedule({ silent: true });
+                    if (!ok) { select.value = selectedSemester; return; }
+                } else if (!confirm(`要「不儲存」直接切換學期嗎？\n\n按「確定」：放棄這些變更，切換學期\n按「取消」：留在「${label}」`)) {
+                    select.value = selectedSemester;
+                    return;
+                }
+            }
+
+            selectedSemester = next;
+            updateScheduleSemesterLabel();
             exitFavoritesMode();
+            loadSavedSchedule();   // 讀這個學期存過的課表（沒存過就是空的）
             goToPage(1, { scrollTop: false, direction: 0 });
         }
 
@@ -3261,6 +3305,13 @@ function nextPage() {
             const course = courses.find(c => c.id === courseId);
             if (!course) return;
 
+            // 【新增】課表綁學期：別的學期的課（例如從「我的收藏」）不能加進這學期的課表
+            const curSem = effectiveSemester();
+            if (course.semester && curSem && course.semester !== curSem) {
+                alert(`「${course.name}」是 ${semesterLabel(course.semester)} 的課，\n目前課表是 ${semesterLabel(selectedSemester)}。\n\n請先把上方「學年學期」切換到 ${semesterLabel(course.semester)} 再加入。`);
+                return;
+            }
+
             if (selectedCourses.some(c => c.id === courseId)) {
                 alert("此課程已加入課表");
                 return;
@@ -3432,12 +3483,14 @@ function nextPage() {
             }
         }
 
-        // 【新增】登入後讀回之前儲存的課表
+        // 【修改】讀回「目前學期」存過的課表（登入、切換學期都會呼叫）
         async function loadSavedSchedule() {
+            const loadId = ++scheduleLoadId;
+            const sem = selectedSemester;
             try {
-                const data = await apiFetch("/api/planner");
+                const data = await apiFetch(sem ? `/api/planner?semester=${encodeURIComponent(sem)}` : "/api/planner");
+                if (loadId !== scheduleLoadId) return;   // 已經又切到別的學期了
                 const items = data.items || [];
-                if (items.length === 0) return;
 
                 const origLog = console.log;
                 console.log = () => {};   // normalizeCourseFromApi 會印很多除錯訊息，這裡先關掉
@@ -3446,14 +3499,19 @@ function nextPage() {
                 } finally {
                     console.log = origLog;
                 }
-
-                updateSelectedCoursesList();
-                updateScheduleDisplay();
-                updateCreditDistribution();
-                if (currentDisplayedCourses.length > 0) displayCourses(currentDisplayedCourses);   // 課程卡片的「已加入」狀態也更新
+                savedScheduleKey = scheduleKey();
             } catch (e) {
+                if (loadId !== scheduleLoadId) return;
                 console.warn("讀取已儲存的課表失敗：", e);
+                selectedCourses = [];
+                savedScheduleKey = "";
             }
+
+            document.getElementById('conflict-warning').style.display = 'none';
+            updateSelectedCoursesList();
+            updateScheduleDisplay();
+            updateCreditDistribution();
+            if (currentDisplayedCourses.length > 0) displayCourses(currentDisplayedCourses);   // 課程卡片的「已加入」狀態也更新
         }
 
         // ===== 學分分佈圖表功能 =====
@@ -3546,7 +3604,8 @@ function nextPage() {
                 return;
             }
             
-            if (confirm("確定要清空整個課表嗎？")) {
+            const semText = selectedSemester ? `「${semesterLabel(selectedSemester)}」的` : "整個";
+            if (confirm(`確定要清空${semText}課表嗎？\n（其他學期的課表不受影響；按「儲存課表」後才會清掉已存的）`)) {
                 selectedCourses = [];
                 updateSelectedCoursesList();
                 updateScheduleDisplay();
@@ -3562,23 +3621,31 @@ function nextPage() {
 
         // 【修改】原本把整份課表 POST 給一次只收一門課的 API，所以出現「courseId required」
         //   改成呼叫新的 PUT /api/planner，一次存整份課表（覆蓋舊的）；登入時會自動讀回來
-        async function saveSchedule() {
-            if (selectedCourses.length === 0) {
-                if (!confirm("目前課表是空的。\n儲存後會清掉之前存過的課表，確定要儲存嗎？")) return;
+        // 【修改】課表綁學期：只儲存「目前學期」的課表，其他學期存過的不會被蓋掉
+        //   silent = true：切換學期時自動儲存用，成功不跳提示；回傳 true / false
+        async function saveSchedule(opts = {}) {
+            const silent = opts && opts.silent === true;
+            const semText = selectedSemester ? semesterLabel(selectedSemester) : "";
+            if (!silent && selectedCourses.length === 0) {
+                if (!confirm(`目前${semText ? "「" + semText + "」的" : ""}課表是空的。\n儲存後會清掉這學期之前存過的課表，確定要儲存嗎？`)) return false;
             }
 
             try {
-                const data = await apiFetch("/api/planner", {
-                    method: "PUT",
-                    body: { courseIds: selectedCourses.map(c => c.id) },
-                });
+                const body = { courseIds: selectedCourses.map(c => c.id) };
+                if (selectedSemester) body.semester = selectedSemester;
+                const data = await apiFetch("/api/planner", { method: "PUT", body });
+                savedScheduleKey = scheduleKey();
 
-                const totalCredits = selectedCourses.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
-                let msg = `✅ 課表已儲存！\n共 ${data.saved ?? selectedCourses.length} 門課、${totalCredits} 學分\n下次登入會自動載入這份課表。`;
-                if (data.skipped) msg += `\n\n（有 ${data.skipped} 門課在資料庫找不到，沒有存到）`;
-                alert(msg);
+                if (!silent) {
+                    const totalCredits = selectedCourses.reduce((sum, c) => sum + (Number(c.credit) || 0), 0);
+                    let msg = `✅ ${semText ? semText + "的" : ""}課表已儲存！\n共 ${data.saved ?? selectedCourses.length} 門課、${totalCredits} 學分\n之後登入或切回這個學期，會自動載入這份課表。`;
+                    if (data.skipped) msg += `\n\n（有 ${data.skipped} 門課不是這學期的課或找不到，沒有存到）`;
+                    alert(msg);
+                }
+                return true;
             } catch (e) {
                 alert(`儲存失敗：${e.message}`);
+                return false;
             }
         }
 
@@ -3597,7 +3664,7 @@ function nextPage() {
             wrap.style.cssText = "width:100%;box-sizing:border-box;padding:16px 20px;background:#fff;color:#333;font-family:'PingFang TC','Microsoft JhengHei',sans-serif;";
 
             wrap.innerHTML = `
-                <h2 style="color:#007d66;margin:0 0 6px;font-size:22px;">NTUNHS 擬排課表</h2>
+                <h2 style="color:#007d66;margin:0 0 6px;font-size:22px;">NTUNHS 擬排課表${selectedSemester ? "｜" + semesterLabel(selectedSemester) : ""}</h2>
                 <div style="font-size:13px;color:#555;margin-bottom:12px;">
                     ${studentId ? `學號：${escapeHtml(studentId)}　` : ""}
                     共 ${selectedCourses.length} 門課、${totalCredits} 學分
@@ -3680,7 +3747,7 @@ function nextPage() {
                 const now = new Date();
                 const studentId = (document.getElementById("display-user-id")?.textContent || "").trim();
                 const dateText = `${now.getFullYear()}${pad2(now.getMonth() + 1)}${pad2(now.getDate())}`;
-                const filename = `擬排課表_${studentId ? studentId.replace(/[^\w.@-]/g, "_") + "_" : ""}${dateText}.pdf`;
+                const filename = `擬排課表_${selectedSemester ? selectedSemester + "_" : ""}${studentId ? studentId.replace(/[^\w.@-]/g, "_") + "_" : ""}${dateText}.pdf`;
 
                 await html2pdf()
                     .set({

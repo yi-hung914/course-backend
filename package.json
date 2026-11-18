@@ -6,10 +6,11 @@
   "scripts": {
     "start": "node server.js",
     "test:auth": "powershell -ExecutionPolicy Bypass -File test-auth.ps1",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "test:security-deps": "node --test scripts/test-security-deps.mjs"
   },
   "dependencies": {
-    "@prisma/client": "^6.19.2",
+    "@prisma/client": "6.19.3",
     "axios": "^1.13.2",
     "axios-cookiejar-support": "^6.0.5",
     "bcrypt": "^6.0.0",
@@ -18,14 +19,19 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "prisma": "^6.15.0",
+    "prisma": "6.19.3",
     "tough-cookie": "^6.0.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "allowScripts": {
-    "prisma@6.15.0": true,
-    "@prisma/client@6.19.2": true,
-    "@prisma/engines@6.15.0": true,
-    "bcrypt@6.0.0": true
+    "bcrypt@6.0.0": true,
+    "prisma@6.19.3": true,
+    "@prisma/client@6.19.3": true,
+    "@prisma/engines@6.19.3": true
+  },
+  "overrides": {
+    "@prisma/config": {
+      "deepmerge-ts": "8.0.2"
+    }
   }
 }

@@ -846,30 +846,6 @@
         }
 
         /* ========== 【新增】智慧選課助理（規則式，不用外部 AI） ========== */
-        #as-fab {
-            position: fixed; right: 22px; bottom: 22px; z-index: 1500;
-            background: #007d66; color: white; border: none; border-radius: 999px;
-            padding: 13px 20px; font-size: 1em; font-weight: bold; cursor: pointer;
-            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
-        }
-        #as-fab:hover { background: #005a4a; }
-        #as-panel {
-            position: fixed; right: 22px; bottom: 84px; z-index: 1500;
-            width: 400px; max-width: calc(100vw - 24px); height: 600px; max-height: calc(100vh - 110px);
-            background: white; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.28);
-            display: none; flex-direction: column; overflow: hidden;
-        }
-        #as-panel.show { display: flex; }
-        .as-head { background: #007d66; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-        .as-head b { font-size: 1.05em; }
-        .as-head small { display: block; opacity: .85; font-size: .78em; font-weight: normal; }
-        .as-close { background: none; border: none; color: white; font-size: 1.5em; cursor: pointer; line-height: 1; }
-        #as-msgs { flex: 1; overflow-y: auto; padding: 14px; background: #f6f8f7; }
-        .as-msg { margin-bottom: 12px; display: flex; }
-        .as-msg.user { justify-content: flex-end; }
-        .as-bubble { max-width: 88%; padding: 10px 13px; border-radius: 12px; font-size: .92em; line-height: 1.6; word-break: break-word; }
-        .as-msg.user .as-bubble { background: #007d66; color: white; border-bottom-right-radius: 4px; }
-        .as-msg.bot .as-bubble { background: white; color: #333; border: 1px solid #e3ebe8; border-bottom-left-radius: 4px; width: 88%; }
         .as-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
         .as-tag { background: #e8f5f1; color: #005a4a; border-radius: 999px; padding: 1px 9px; font-size: .82em; }
         .as-course { border: 1px solid #e6eeeb; border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: #fbfdfc; }
@@ -881,15 +857,30 @@
         .as-btn:disabled { opacity: .5; cursor: default; }
         .as-plan { border: 1px solid #cfe9e3; border-radius: 10px; padding: 8px 10px; margin-top: 10px; background: #f3fbf8; }
         .as-plan h4 { color: #005a4a; font-size: .95em; margin-bottom: 4px; }
-        .as-examples { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 8px 12px 2px; background: white; border-top: 1px solid #eee; -webkit-overflow-scrolling: touch; }
-        .as-ex { flex-shrink: 0; white-space: nowrap; background: #eef7f5; color: #007d66; border: none; border-radius: 999px; padding: 4px 10px; font-size: .8em; cursor: pointer; }
-        .as-form { display: flex; gap: 8px; padding: 10px 12px 12px; background: white; }
-        .as-form input { flex: 1; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; min-width: 0; }
-        .as-form input:focus { outline: none; border-color: #007d66; }
-        .as-form button { background: #007d66; color: white; border: none; border-radius: 8px; padding: 0 16px; font-weight: bold; cursor: pointer; }
+        .as-ex { flex-shrink: 0; white-space: nowrap; background: white; color: #8a5a00; border: 1px solid #f0d9a4; border-radius: 999px; padding: 5px 12px; font-size: .85em; cursor: pointer; }
+        .as-ex:hover { background: #fff3d6; }
+        /* 【修改】智慧助理整合進「搜尋課程」：上方切換「關鍵字搜尋／智慧助理」 */
+        .search-mode { display: inline-flex; background: #e6f2ee; border-radius: 999px; padding: 4px; margin-bottom: 12px; gap: 4px; }
+        .mode-btn { border: none; background: transparent; color: #005a4a; padding: 8px 18px; border-radius: 999px; font-size: .95em; font-weight: bold; cursor: pointer; }
+        .mode-btn.active { background: #007d66; color: white; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
+        .search-container.smart { background: #fff8e9; border: 1px solid #f5dfae; }
+        .smart-examples { display: none; flex-basis: 100%; flex-wrap: wrap; gap: 6px; align-items: center; }
+        .search-container.smart .smart-examples { display: flex; }
+        .smart-examples span { font-size: .85em; color: #8a6d2b; }
+        .smart-result { margin-top: 6px; line-height: 1.7; }
+        .smart-q { font-weight: bold; color: #333; margin-bottom: 4px; }
+        .smart-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; margin-top: 12px; }
+        .smart-result .as-course { margin-top: 0; padding: 14px 16px; background: white; border: 1px solid #e0e0e0; border-radius: 8px; }
+        .smart-result .as-course .t { font-size: 1.05em; margin-bottom: 4px; }
+        .smart-result .as-course .i { font-size: .88em; }
+        .smart-result .as-plan { padding: 12px 14px; margin-top: 14px; }
+        .smart-result .as-plan h4 { font-size: 1em; }
+        .as-plan-foot { margin-top: 10px; }
         @media (max-width: 768px) {
-            #as-fab { right: 14px; bottom: 14px; padding: 11px 16px; }
-            #as-panel { right: 0; left: 0; bottom: 0; width: 100%; max-width: 100%; height: 78vh; max-height: 78vh; border-radius: 14px 14px 0 0; }
+            .mode-btn { padding: 7px 12px; font-size: .9em; }
+            .smart-grid { grid-template-columns: 1fr; }
+            .search-container.smart .smart-examples { flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+            .smart-examples span { flex-shrink: 0; }
         }
 
         /* ========== 【新增】手機版排版（螢幕寬度 768px 以下才生效，電腦版不受影響） ========== */
@@ -1071,10 +1062,16 @@
                         </select>
                     </div>
 
-                    <div class="search-container">
+                    <!-- 【新增】切換：關鍵字搜尋／智慧助理（用一句話描述，系統幫你找課、推薦、排課） -->
+                    <div class="search-mode">
+                        <button class="mode-btn active" data-mode="keyword" onclick="setSearchMode('keyword')">🔍 關鍵字搜尋</button>
+                        <button class="mode-btn" data-mode="smart" onclick="setSearchMode('smart')">✨ 智慧助理</button>
+                    </div>
+                    <div class="search-container" id="search-container">
                         <input type="text" id="course-search" placeholder="輸入課程名稱、代碼或教師，會自動搜尋..." class="search-box" autocomplete="off">
-                        <button class="search-btn" onclick="goToPage(1)">搜尋課程</button>
+                        <button class="search-btn" id="search-go-btn" onclick="onSearchClick()">搜尋課程</button>
                         <button class="search-btn" onclick="clearSearchAndShowAll()">顯示全部</button>
+                        <div class="smart-examples" id="smart-examples"></div>
                     </div>
                     
                     <!-- 篩選器 -->
@@ -1240,20 +1237,6 @@
                 <div class="pw-msg" id="pw-msg"></div>
                 <button class="login-btn" id="pw-submit" onclick="submitPasswordChange()">更新密碼</button>
             </div>
-        </div>
-        <!-- 【新增】智慧選課助理 -->
-        <button id="as-fab" onclick="toggleAssistant()">💬 智慧助理</button>
-        <div id="as-panel">
-            <div class="as-head">
-                <div><b>智慧選課助理</b><small>用一般的話找課、幫你湊學分排課</small></div>
-                <button class="as-close" onclick="toggleAssistant(false)">&times;</button>
-            </div>
-            <div id="as-msgs"></div>
-            <div class="as-examples" id="as-examples"></div>
-            <form class="as-form" onsubmit="event.preventDefault(); sendAssistant();">
-                <input id="as-input" placeholder="例如：週三下午有什麼通識課？" autocomplete="off">
-                <button type="submit">送出</button>
-            </form>
         </div>
     </div>
 
@@ -1873,12 +1856,10 @@ function resetToFirstPageAndReload() {
             // 【新增】篩選條件、搜尋字也清掉，下一個人登入是乾淨的畫面
             favoritesMode = false;
             favoriteIds = new Set();
-            // 【新增】智慧助理對話也清掉
-            toggleAssistant(false);
-            asStarted = false;
+            // 【新增】智慧助理也恢復成關鍵字搜尋
+            if (searchMode === "smart") setSearchMode("keyword");
             asCourses = new Map();
             recCache = { semester: null, items: null };
-            document.getElementById("as-msgs").innerHTML = "";
             clearAllFilters();
             const searchInput = document.getElementById('course-search');
             if (searchInput) searchInput.value = "";
@@ -2224,6 +2205,12 @@ let lastMode = "all"; // "all" | "search"
 async function goToPage(page, { scrollTop = false, direction = 0 } = {}) {
   let p = Math.max(1, Number(page) || 1);
 
+  // 【新增】智慧助理模式：換系所、學期時，用同一句話重新查一次
+  if (searchMode === "smart") {
+    if (smartLastQuery) await runSmart(smartLastQuery);
+    return;
+  }
+
   const term = String(document.getElementById("course-search")?.value || "").trim();
 
   while (true) {
@@ -2378,6 +2365,10 @@ let isComposing = false;         // 注音/中文輸入選字中，先不要查
 
 function triggerLiveSearch(delay = 300) {
   clearTimeout(liveSearchTimer);
+  if (searchMode === "smart") {   // 【新增】智慧助理：打字時不查，按 Enter 才送出
+    if (delay === 0) runSmart();
+    return;
+  }
   liveSearchTimer = setTimeout(() => {
     goToPage(1, { scrollTop: false, direction: 0 });   // 換關鍵字就回到第 1 頁
   }, delay);
@@ -2432,7 +2423,6 @@ const AS_CN_NUM = { "零": 0, "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, 
 const AS_DAY_RE = "(?:週|周|星期|禮拜)([一二三四五六日天])";
 const AS_NUM_RE = "(\\d+|[一二兩三四五六七八九十]{1,3})";
 let asCourses = new Map();   // 助理列出的課程（按「加入課表」時用）
-let asStarted = false;
 
 function asToNum(s) {
   if (/^\d+$/.test(s)) return Number(s);
@@ -2551,16 +2541,6 @@ function asCourseHtml(c) {
   </div>`;
 }
 
-function asPush(who, html) {
-  const box = document.getElementById("as-msgs");
-  const div = document.createElement("div");
-  div.className = `as-msg ${who}`;
-  div.innerHTML = `<div class="as-bubble">${html}</div>`;
-  box.appendChild(div);
-  box.scrollTop = box.scrollHeight;
-  return div;
-}
-
 function asHelpHtml(prefix) {
   return `${prefix}<br>我是規則式的選課助理，看得懂這些條件：
     <div class="as-tags"><span class="as-tag">星期（週三、週一到週三）</span><span class="as-tag">時段（上午、下午、晚上）</span><span class="as-tag">學分</span><span class="as-tag">專業／通識、必修／選修</span><span class="as-tag">年級（大一、二年級）</span><span class="as-tag">課名或老師</span></div>
@@ -2568,45 +2548,90 @@ function asHelpHtml(prefix) {
     也可以描述你的背景和目標，例如「我是資管系三年級，想加強程式能力」，我會推薦相關的課並說明理由。`;
 }
 
-function toggleAssistant(force) {
-  const panel = document.getElementById("as-panel");
-  const show = typeof force === "boolean" ? force : !panel.classList.contains("show");
-  panel.classList.toggle("show", show);
-  if (show && !asStarted) {
-    asStarted = true;
-    document.getElementById("as-examples").innerHTML =
-      AS_EXAMPLES.map(e => `<button class="as-ex" type="button" onclick="sendAssistant(this.textContent)">${escapeHtml(e)}</button>`).join("");
-    asPush("bot", asHelpHtml("嗨！想找什麼課？可以直接打字，或點下面的範例。"));
-  }
-  if (show) setTimeout(() => document.getElementById("as-input")?.focus(), 50);
+// 【修改】智慧助理整合進「搜尋課程」：判斷這句話是要推薦、排課還是找課，回傳結果的 HTML
+async function asAnswer(text) {
+  const r = asParse(text);
+  const prof = recParseProfile(text);   // 興趣導向推薦
+  const hasCond = r.days.size || r.noDays.size || r.slots.size || r.credits.size || r.kinds.size || r.grades.size || r.keyword;
+  if (r.plan && r.need > 0) return asPlan(r);
+  if (prof.topics.length || (prof.intent && prof.words.length)) return recRecommend(prof);
+  if (r.plan && !r.need) return "想湊幾學分呢？例如：「我還差 <b>4 學分</b>通識，週五不想上課」。";
+  if (!hasCond) return asHelpHtml("抱歉，這句我看不太懂 🙏");
+  return asSearch(r);
 }
 
-async function sendAssistant(textArg) {
-  const input = document.getElementById("as-input");
-  const text = String(textArg ?? input.value).trim();
-  if (!text) return;
+// ===== 搜尋模式切換 =====
+let searchMode = "keyword";   // "keyword" 關鍵字搜尋 | "smart" 智慧助理
+let smartLastQuery = "";
+let smartRequestId = 0;
+
+function setSearchMode(mode) {
+  if (mode === searchMode) return;
+  searchMode = mode;
+  const smart = mode === "smart";
+  document.querySelectorAll(".mode-btn").forEach(b => b.classList.toggle("active", b.getAttribute("data-mode") === mode));
+  document.getElementById("search-container").classList.toggle("smart", smart);
+  document.getElementById("course-filters").style.display = smart ? "none" : "";
+  document.getElementById("day-filters").style.display = smart ? "none" : "";
+  document.getElementById("search-go-btn").textContent = smart ? "送出" : "搜尋課程";
+  const input = document.getElementById("course-search");
+  input.placeholder = smart
+    ? "用一句話描述，例如：我是資管系三年級，想加強程式能力"
+    : "輸入課程名稱、代碼或教師，會自動搜尋...";
   input.value = "";
-  asPush("user", escapeHtml(text));
-  const r = asParse(text);
-  const prof = recParseProfile(text);   // 【新增】興趣導向推薦
-  const hasCond = r.days.size || r.noDays.size || r.slots.size || r.credits.size || r.kinds.size || r.grades.size || r.keyword;
-  const waiting = asPush("bot", "查詢中…");
-  try {
-    if (r.plan && r.need > 0) {
-      waiting.querySelector(".as-bubble").innerHTML = await asPlan(r);
-    } else if (prof.topics.length || (prof.intent && prof.words.length)) {
-      waiting.querySelector(".as-bubble").innerHTML = await recRecommend(prof);
-    } else if (r.plan && !r.need) {
-      waiting.querySelector(".as-bubble").innerHTML = "想湊幾學分呢？例如：「我還差 <b>4 學分</b>通識，週五不想上課」。";
-    } else if (!hasCond) {
-      waiting.querySelector(".as-bubble").innerHTML = asHelpHtml("抱歉，這句我看不太懂 🙏");
-    } else {
-      waiting.querySelector(".as-bubble").innerHTML = await asSearch(r);
-    }
-  } catch (e) {
-    waiting.querySelector(".as-bubble").innerHTML = `查詢失敗：${escapeHtml(e.message)}`;
+  clearTimeout(liveSearchTimer);
+  if (smart) {
+    exitFavoritesMode();
+    document.getElementById("smart-examples").innerHTML = "<span>試試看：</span>" +
+      AS_EXAMPLES.map(e => `<button class="as-ex" type="button" onclick="runSmart(this.textContent)">${escapeHtml(e)}</button>`).join("");
+    smartLastQuery = "";
+    document.getElementById("pagination-container").style.display = "none";
+    document.getElementById("course-results").innerHTML = `<div class="smart-result">${asHelpHtml("✨ 智慧助理：用一句話告訴我你想找什麼課。")}</div>`;
+    input.focus();
+  } else {
+    goToPage(1, { scrollTop: false, direction: 0 });
   }
-  document.getElementById("as-msgs").scrollTop = 1e9;
+}
+
+function onSearchClick() {
+  if (searchMode === "smart") runSmart();
+  else goToPage(1);
+}
+
+// 執行智慧助理，結果直接顯示在課程列表的位置
+async function runSmart(textArg) {
+  const input = document.getElementById("course-search");
+  if (typeof textArg === "string") input.value = textArg;
+  const text = String(input.value || "").trim();
+  const container = document.getElementById("course-results");
+  document.getElementById("pagination-container").style.display = "none";
+  if (!text) {
+    container.innerHTML = `<div class="smart-result">${asHelpHtml("請先輸入一句話。")}</div>`;
+    return;
+  }
+  smartLastQuery = text;
+  const id = ++smartRequestId;
+  container.innerHTML = `<div class="smart-result"><div class="smart-q">「${escapeHtml(text)}」</div>分析中…</div>`;
+  let html;
+  try {
+    html = await asAnswer(text);
+  } catch (e) {
+    html = `查詢失敗：${escapeHtml(e.message)}`;
+  }
+  if (id !== smartRequestId) return;   // 已經有更新的查詢
+  container.innerHTML = `<div class="smart-result"><div class="smart-q">「${escapeHtml(text)}」</div>${html}</div>`;
+  // 連續的課程卡片排成格狀
+  container.querySelectorAll(".smart-result, .as-plan").forEach(parent => {
+    let group = null;
+    [...parent.children].forEach(el => {
+      if (el.classList.contains("as-course")) {
+        if (!group) { group = document.createElement("div"); group.className = "smart-grid"; parent.insertBefore(group, el); }
+        group.appendChild(el);
+      } else {
+        group = null;
+      }
+    });
+  });
 }
 
 async function asFetch(r, pageSize, opts) {
@@ -2697,7 +2722,7 @@ async function asPlan(r) {
     const days = [...daysOf(p)].sort().map(d => AS_DAY_NAME[d]).join("、");
     html += `<div class="as-plan"><h4>方案 ${i + 1}：${p.length} 門課，共 ${need} 學分（${days}）</h4>
       ${p.map(asCourseHtml).join("")}
-      <div class="as-course" style="border:none;background:none;padding:6px 0 0;"><button class="as-btn main" onclick="asAddPlan('${ids}', this)">整個方案加入課表</button></div>
+      <div class="as-plan-foot"><button class="as-btn main" onclick="asAddPlan('${ids}', this)">整個方案加入課表</button></div>
     </div>`;
   });
   return html;
@@ -2740,7 +2765,7 @@ function asAddPlan(ids, btn) {
   asRefreshButtons();
   btn.disabled = true;
   btn.textContent = "已加入課表 ✓";
-  asPush("bot", `已把 ${list.length} 門課加入課表，記得按「儲存課表」喔！`);
+  btn.insertAdjacentHTML("afterend", `<span style="margin-left:8px;font-size:.85em;color:#007d66;">已加入 ${list.length} 門課，記得到「我的課表」按「儲存課表」</span>`);
 }
 
 async function asFav(id) {
@@ -3065,6 +3090,7 @@ function clearSearchAndShowAll() {
   clearTimeout(liveSearchTimer);
   const input = document.getElementById("course-search");
   if (input) input.value = "";
+  if (searchMode === "smart") { setSearchMode("keyword"); return; }   // 【新增】回到關鍵字搜尋並顯示全部
   exitFavoritesMode();
   goToPage(1, { scrollTop: false, direction: 0 });
 }
@@ -3089,6 +3115,8 @@ function nextPage() {
 
         // ===== 課程顯示功能 =====
         function displayCourses(courseList) {
+            // 【新增】智慧助理模式時，課程列表的位置正顯示助理結果，不要蓋掉，只更新按鈕狀態
+            if (searchMode === "smart") { asRefreshButtons(); return; }
             const container = document.getElementById('course-results');
             
             if (courseList.length === 0) {

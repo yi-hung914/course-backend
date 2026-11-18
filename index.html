@@ -845,6 +845,53 @@
             }
         }
 
+        /* ========== 【新增】智慧選課助理（規則式，不用外部 AI） ========== */
+        #as-fab {
+            position: fixed; right: 22px; bottom: 22px; z-index: 1500;
+            background: #007d66; color: white; border: none; border-radius: 999px;
+            padding: 13px 20px; font-size: 1em; font-weight: bold; cursor: pointer;
+            box-shadow: 0 6px 18px rgba(0,0,0,0.25);
+        }
+        #as-fab:hover { background: #005a4a; }
+        #as-panel {
+            position: fixed; right: 22px; bottom: 84px; z-index: 1500;
+            width: 400px; max-width: calc(100vw - 24px); height: 600px; max-height: calc(100vh - 110px);
+            background: white; border-radius: 14px; box-shadow: 0 12px 40px rgba(0,0,0,0.28);
+            display: none; flex-direction: column; overflow: hidden;
+        }
+        #as-panel.show { display: flex; }
+        .as-head { background: #007d66; color: white; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+        .as-head b { font-size: 1.05em; }
+        .as-head small { display: block; opacity: .85; font-size: .78em; font-weight: normal; }
+        .as-close { background: none; border: none; color: white; font-size: 1.5em; cursor: pointer; line-height: 1; }
+        #as-msgs { flex: 1; overflow-y: auto; padding: 14px; background: #f6f8f7; }
+        .as-msg { margin-bottom: 12px; display: flex; }
+        .as-msg.user { justify-content: flex-end; }
+        .as-bubble { max-width: 88%; padding: 10px 13px; border-radius: 12px; font-size: .92em; line-height: 1.6; word-break: break-word; }
+        .as-msg.user .as-bubble { background: #007d66; color: white; border-bottom-right-radius: 4px; }
+        .as-msg.bot .as-bubble { background: white; color: #333; border: 1px solid #e3ebe8; border-bottom-left-radius: 4px; width: 88%; }
+        .as-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
+        .as-tag { background: #e8f5f1; color: #005a4a; border-radius: 999px; padding: 1px 9px; font-size: .82em; }
+        .as-course { border: 1px solid #e6eeeb; border-radius: 8px; padding: 8px 10px; margin-top: 8px; background: #fbfdfc; }
+        .as-course .t { font-weight: bold; color: #007d66; }
+        .as-course .i { font-size: .84em; color: #666; }
+        .as-course .b { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+        .as-btn { border: 1px solid #007d66; background: white; color: #007d66; border-radius: 6px; padding: 3px 10px; font-size: .84em; cursor: pointer; }
+        .as-btn.main { background: #007d66; color: white; }
+        .as-btn:disabled { opacity: .5; cursor: default; }
+        .as-plan { border: 1px solid #cfe9e3; border-radius: 10px; padding: 8px 10px; margin-top: 10px; background: #f3fbf8; }
+        .as-plan h4 { color: #005a4a; font-size: .95em; margin-bottom: 4px; }
+        .as-examples { display: flex; flex-wrap: nowrap; overflow-x: auto; gap: 6px; padding: 8px 12px 2px; background: white; border-top: 1px solid #eee; -webkit-overflow-scrolling: touch; }
+        .as-ex { flex-shrink: 0; white-space: nowrap; background: #eef7f5; color: #007d66; border: none; border-radius: 999px; padding: 4px 10px; font-size: .8em; cursor: pointer; }
+        .as-form { display: flex; gap: 8px; padding: 10px 12px 12px; background: white; }
+        .as-form input { flex: 1; padding: 10px 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 1em; min-width: 0; }
+        .as-form input:focus { outline: none; border-color: #007d66; }
+        .as-form button { background: #007d66; color: white; border: none; border-radius: 8px; padding: 0 16px; font-weight: bold; cursor: pointer; }
+        @media (max-width: 768px) {
+            #as-fab { right: 14px; bottom: 14px; padding: 11px 16px; }
+            #as-panel { right: 0; left: 0; bottom: 0; width: 100%; max-width: 100%; height: 78vh; max-height: 78vh; border-radius: 14px 14px 0 0; }
+        }
+
         /* ========== 【新增】手機版排版（螢幕寬度 768px 以下才生效，電腦版不受影響） ========== */
         .swipe-hint { display: none; }
         .schedule-scroll { width: 100%; }
@@ -1193,6 +1240,20 @@
                 <div class="pw-msg" id="pw-msg"></div>
                 <button class="login-btn" id="pw-submit" onclick="submitPasswordChange()">更新密碼</button>
             </div>
+        </div>
+        <!-- 【新增】智慧選課助理 -->
+        <button id="as-fab" onclick="toggleAssistant()">💬 智慧助理</button>
+        <div id="as-panel">
+            <div class="as-head">
+                <div><b>智慧選課助理</b><small>用一般的話找課、幫你湊學分排課</small></div>
+                <button class="as-close" onclick="toggleAssistant(false)">&times;</button>
+            </div>
+            <div id="as-msgs"></div>
+            <div class="as-examples" id="as-examples"></div>
+            <form class="as-form" onsubmit="event.preventDefault(); sendAssistant();">
+                <input id="as-input" placeholder="例如：週三下午有什麼通識課？" autocomplete="off">
+                <button type="submit">送出</button>
+            </form>
         </div>
     </div>
 
@@ -1812,6 +1873,11 @@ function resetToFirstPageAndReload() {
             // 【新增】篩選條件、搜尋字也清掉，下一個人登入是乾淨的畫面
             favoritesMode = false;
             favoriteIds = new Set();
+            // 【新增】智慧助理對話也清掉
+            toggleAssistant(false);
+            asStarted = false;
+            asCourses = new Map();
+            document.getElementById("as-msgs").innerHTML = "";
             clearAllFilters();
             const searchInput = document.getElementById('course-search');
             if (searchInput) searchInput.value = "";
@@ -2340,6 +2406,339 @@ function setupLiveSearch() {
       triggerLiveSearch(0);
     }
   });
+}
+
+// ===== 【新增】智慧選課助理（規則式：程式自己解析句子，不用外部 AI、不用 API 金鑰）=====
+//   1. 看懂問題：把句子拆成條件（星期、時段、學分、類別、年級、課名或老師）
+//   2. 找課：把條件交給後端 /api/courses 查詢
+//   3. 排課推薦：「還差 N 學分」→ 找出不衝堂、剛好湊滿學分的課程組合
+const AS_EXAMPLES = [
+  "週三下午有什麼通識課？",
+  "2 學分的通識選修",
+  "大一的專業必修",
+  "我還差 4 學分通識，週五不想上課",
+  "推薦 6 學分的專業選修",
+  "資料庫",
+];
+const AS_DAY = { "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "日": 7, "天": 7 };
+const AS_DAY_NAME = ["", "週一", "週二", "週三", "週四", "週五", "週六", "週日"];
+const AS_SLOT_NAME = { morning: "上午", afternoon: "下午", evening: "晚上" };
+const AS_KIND_NAME = { "core": "專業必修", "elective": "專業選修", "gen-core": "通識必修", "gen-elective": "通識選修" };
+const AS_CN_NUM = { "零": 0, "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9, "十": 10 };
+const AS_DAY_RE = "(?:週|周|星期|禮拜)([一二三四五六日天])";
+const AS_NUM_RE = "(\\d+|[一二兩三四五六七八九十]{1,3})";
+let asCourses = new Map();   // 助理列出的課程（按「加入課表」時用）
+let asStarted = false;
+
+function asToNum(s) {
+  if (/^\d+$/.test(s)) return Number(s);
+  if (s === "十") return 10;
+  if (s.startsWith("十")) return 10 + (AS_CN_NUM[s[1]] || 0);
+  if (s.endsWith("十")) return (AS_CN_NUM[s[0]] || 1) * 10;
+  if (s.length === 3 && s[1] === "十") return AS_CN_NUM[s[0]] * 10 + AS_CN_NUM[s[2]];
+  return AS_CN_NUM[s] ?? NaN;
+}
+
+// 把一句話拆成查詢條件
+function asParse(text) {
+  const r = { days: new Set(), noDays: new Set(), slots: new Set(), credits: new Set(), kinds: new Set(), grades: new Set(), need: 0, plan: false, keyword: "" };
+  let t = String(text || "").replace(/\s+/g, "").replace(/[？?！!。，,、；;：:~～]/g, " ");
+  const cut = (re, fn) => { t = t.replace(re, (...m) => { fn(...m); return " "; }); };
+
+  // 想排課／推薦
+  if (/推薦|建議|幫我排|排課|組合|搭配|湊|還差|差幾|修滿|補滿/.test(t)) r.plan = true;
+
+  // 星期：範圍（週一到週三）、不要的星期、一般星期
+  cut(new RegExp(AS_DAY_RE + "(?:到|至|-)(?:週|周|星期|禮拜)?([一二三四五六日天])", "g"),
+      (m, a, b) => { for (let d = AS_DAY[a]; d <= AS_DAY[b]; d++) r.days.add(d); });
+  // 「不要週一和週五」：否定詞後面接的每一天都不排
+  cut(new RegExp("(?:不要|不想|避開|除了|不排|不上|沒空)(?:在)?" + AS_DAY_RE + "(?:(?:和|跟|及|或|、| )?(?:週|周|星期|禮拜)?[一二三四五六日天](?![年級]))*(?:上課|有課|的課)?", "g"),
+      (m) => { for (const ch of m.replace(/^(?:不要|不想|避開|除了|不排|不上|沒空)/, "").replace(/上課|有課|的課/g, "")) if (AS_DAY[ch] && ch !== "天") r.noDays.add(AS_DAY[ch]); });
+  cut(new RegExp(AS_DAY_RE + "(?:不想上課|不要上課|不想有課|不要有課|不上課|不要|不想|沒課|沒空|休息|放假|空出來|空堂)", "g"),
+      (m, a) => r.noDays.add(AS_DAY[a]));
+  cut(new RegExp(AS_DAY_RE, "g"), (m, a) => r.days.add(AS_DAY[a]));
+
+  // 時段（「不要晚上」這種排除時段的說法先略過，不當成條件）
+  cut(/(?:不要|不想|避開)(?:在)?(?:早上|上午|早八|下午|午後|晚上|夜間|傍晚)(?:的課|上課|有課)?/g, () => { r.skipped = true; });
+  cut(/早上|上午|早八/g, () => r.slots.add("morning"));
+  cut(/下午|午後/g, () => r.slots.add("afternoon"));
+  cut(/晚上|夜間|傍晚/g, () => r.slots.add("evening"));
+
+  // 學分：「還差 4 學分」是要湊的總學分；「2 學分的課」是每門課的學分
+  cut(new RegExp("(?:還差|差|湊滿|湊|還需要|需要|還要|補滿|補|修滿|排|多修|要修|想修|推薦|建議)(?:個)?" + AS_NUM_RE + "(?:個)?學分", "g"),
+      (m, n) => { r.need = asToNum(n); r.plan = true; });
+  cut(new RegExp(AS_NUM_RE + "(?:個)?學分", "g"), (m, n) => { const v = asToNum(n); if (!isNaN(v)) r.credits.add(v); });
+
+  // 類別（先比對長的詞）
+  cut(/通識必修/g, () => r.kinds.add("gen-core"));
+  cut(/通識選修/g, () => r.kinds.add("gen-elective"));
+  cut(/專業必修|系必修|本系必修/g, () => r.kinds.add("core"));
+  cut(/專業選修|系選修|本系選修/g, () => r.kinds.add("elective"));
+  cut(/通識/g, () => { r.kinds.add("gen-core"); r.kinds.add("gen-elective"); });
+  cut(/必修/g, () => { r.kinds.add("core"); r.kinds.add("gen-core"); });
+  cut(/選修/g, () => { r.kinds.add("elective"); r.kinds.add("gen-elective"); });
+  cut(/專業課|專業/g, () => { r.kinds.add("core"); r.kinds.add("elective"); });
+
+  // 年級
+  cut(/大([一二三四])/g, (m, a) => r.grades.add(AS_DAY[a]));
+  cut(/([一二三四1-4])年級/g, (m, a) => r.grades.add(/\d/.test(a) ? Number(a) : AS_DAY[a]));
+
+  // 剩下的字當關鍵字（課名或老師）
+  t = t.replace(/有沒有|有哪些|有什麼|什麼|哪些|哪幾門|幾門|可以|幫我|幫忙|請問|請|給我|列出|找一下|找找|搜尋|查詢|查一下|推薦|建議|排課|組合|搭配|一下|我想要修|我想要上|我想修|我想上|我要修|我要上|想要修|想要上|想要|想上|想修|我想|我要|我還|還有|還差|湊滿|修滿|補滿|上課|的課|課程|老師的|老師|教授|開的|一些|^查|^找|我|課|嗎|呢|吧|啊|的|在|還|跟/g, " ");
+  const words = t.split(/\s+/).filter(w => w.length >= 2);
+  r.keyword = words.sort((a, b) => b.length - a.length)[0] || "";
+  return r;
+}
+
+// 條件 → 後端查詢參數（會沿用目前選的學期、系所）
+function asParams(r, { withCredits = true } = {}) {
+  let q = "";
+  if (r.kinds.size > 0 && r.kinds.size < 4) q += `&kind=${[...r.kinds].sort().join(",")}`;
+  if (r.days.size) q += `&day=${[...r.days].sort().join(",")}`;
+  if (r.slots.size) q += `&slot=${[...r.slots].join(",")}`;
+  if (r.noDays.size) q += `&noday=${[...r.noDays].sort().join(",")}`;
+  if (r.grades.size) q += `&grade=${[...r.grades].sort().join(",")}`;
+  if (withCredits && r.credits.size) q += `&credits=${[...r.credits].join(",")}`;
+  if (selectedSemester) q += `&semester=${selectedSemester}`;
+  const depts = Array.isArray(selectedDepartments) ? selectedDepartments.filter(Boolean) : [];
+  if (depts.length) q += `&dept=${encodeURIComponent(depts.join(","))}`;
+  return q;
+}
+
+function asTagsHtml(r) {
+  const tags = [];
+  r.days.forEach(d => tags.push(AS_DAY_NAME[d]));
+  r.noDays.forEach(d => tags.push(`${AS_DAY_NAME[d]}不排課`));
+  r.slots.forEach(s => tags.push(AS_SLOT_NAME[s]));
+  r.credits.forEach(c => tags.push(`每門 ${c} 學分`));
+  if (r.kinds.size > 0 && r.kinds.size < 4) {
+    const k = r.kinds;
+    if (k.size === 2 && k.has("gen-core") && k.has("gen-elective")) tags.push("通識");
+    else if (k.size === 2 && k.has("core") && k.has("elective")) tags.push("專業課");
+    else if (k.size === 2 && k.has("core") && k.has("gen-core")) tags.push("必修");
+    else if (k.size === 2 && k.has("elective") && k.has("gen-elective")) tags.push("選修");
+    else k.forEach(x => tags.push(AS_KIND_NAME[x]));
+  }
+  r.grades.forEach(g => tags.push(`${g} 年級`));
+  if (r.keyword) tags.push(`關鍵字「${escapeHtml(r.keyword)}」`);
+  if (r.need) tags.push(`湊滿 ${r.need} 學分`);
+  if (r.skipped) tags.push("（排除時段目前不支援，已略過）");
+  const depts = Array.isArray(selectedDepartments) ? selectedDepartments.filter(Boolean) : [];
+  if (depts.length) tags.push(`系所：${depts.map(c => DEPT_MAP[c] || c).join("、")}`);
+  return tags.length ? `<div class="as-tags">${tags.map(x => `<span class="as-tag">${x}</span>`).join("")}</div>` : "";
+}
+
+function asTimeText(c) {
+  return c.time.length ? formatCourseTime(c.time) : "未提供時間";
+}
+
+function asCourseHtml(c) {
+  asCourses.set(c.id, c);
+  const added = selectedCourses.some(x => x.id === c.id);
+  const fav = favoriteIds.has(c.id);
+  return `<div class="as-course">
+    <div class="t">${escapeHtml(c.name)}</div>
+    <div class="i">${c.credit} 學分｜${courseTypeLabel(c)}｜${escapeHtml(c.teacher)}</div>
+    <div class="i">${asTimeText(c)}${c.location ? "｜" + escapeHtml(c.location) : ""}</div>
+    <div class="b">
+      <button class="as-btn main" data-as-add="${c.id}" ${added ? "disabled" : ""} onclick="asAdd('${c.id}')">${added ? "已加入" : "加入課表"}</button>
+      <button class="as-btn" data-as-fav="${c.id}" onclick="asFav('${c.id}')">${fav ? "★ 已收藏" : "☆ 收藏"}</button>
+    </div>
+  </div>`;
+}
+
+function asPush(who, html) {
+  const box = document.getElementById("as-msgs");
+  const div = document.createElement("div");
+  div.className = `as-msg ${who}`;
+  div.innerHTML = `<div class="as-bubble">${html}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+  return div;
+}
+
+function asHelpHtml(prefix) {
+  return `${prefix}<br>我是規則式的選課助理，看得懂這些條件：
+    <div class="as-tags"><span class="as-tag">星期（週三、週一到週三）</span><span class="as-tag">時段（上午、下午、晚上）</span><span class="as-tag">學分</span><span class="as-tag">專業／通識、必修／選修</span><span class="as-tag">年級（大一、二年級）</span><span class="as-tag">課名或老師</span></div>
+    想排課可以說「我還差 4 學分通識，週五不想上課」，我會幫你找不衝堂、剛好湊滿的組合。`;
+}
+
+function toggleAssistant(force) {
+  const panel = document.getElementById("as-panel");
+  const show = typeof force === "boolean" ? force : !panel.classList.contains("show");
+  panel.classList.toggle("show", show);
+  if (show && !asStarted) {
+    asStarted = true;
+    document.getElementById("as-examples").innerHTML =
+      AS_EXAMPLES.map(e => `<button class="as-ex" type="button" onclick="sendAssistant(this.textContent)">${escapeHtml(e)}</button>`).join("");
+    asPush("bot", asHelpHtml("嗨！想找什麼課？可以直接打字，或點下面的範例。"));
+  }
+  if (show) setTimeout(() => document.getElementById("as-input")?.focus(), 50);
+}
+
+async function sendAssistant(textArg) {
+  const input = document.getElementById("as-input");
+  const text = String(textArg ?? input.value).trim();
+  if (!text) return;
+  input.value = "";
+  asPush("user", escapeHtml(text));
+  const r = asParse(text);
+  const hasCond = r.days.size || r.noDays.size || r.slots.size || r.credits.size || r.kinds.size || r.grades.size || r.keyword;
+  const waiting = asPush("bot", "查詢中…");
+  try {
+    if (r.plan && r.need > 0) {
+      waiting.querySelector(".as-bubble").innerHTML = await asPlan(r);
+    } else if (r.plan && !r.need) {
+      waiting.querySelector(".as-bubble").innerHTML = "想湊幾學分呢？例如：「我還差 <b>4 學分</b>通識，週五不想上課」。";
+    } else if (!hasCond) {
+      waiting.querySelector(".as-bubble").innerHTML = asHelpHtml("抱歉，這句我看不太懂 🙏");
+    } else {
+      waiting.querySelector(".as-bubble").innerHTML = await asSearch(r);
+    }
+  } catch (e) {
+    waiting.querySelector(".as-bubble").innerHTML = `查詢失敗：${escapeHtml(e.message)}`;
+  }
+  document.getElementById("as-msgs").scrollTop = 1e9;
+}
+
+async function asFetch(r, pageSize, opts) {
+  const base = r.keyword ? `/api/courses/search?q=${encodeURIComponent(r.keyword)}&` : "/api/courses?";
+  const data = await apiFetch(`${base}page=1&pageSize=${pageSize}${asParams(r, opts)}`);
+  const origLog = console.log;
+  console.log = () => {};   // normalizeCourseFromApi 會印很多除錯訊息
+  try {
+    return { total: data.total ?? 0, items: (data.items || []).map(normalizeCourseFromApi) };
+  } finally {
+    console.log = origLog;
+  }
+}
+
+// 找課
+async function asSearch(r) {
+  const SHOW = 6;
+  const { total, items } = await asFetch(r, SHOW);
+  let html = `我理解的條件：${asTagsHtml(r)}`;
+  if (total === 0) {
+    const onlyKeyword = r.keyword && !(r.days.size || r.noDays.size || r.slots.size || r.credits.size || r.kinds.size || r.grades.size);
+    return html + (onlyKeyword
+      ? asHelpHtml(`找不到課名或老師含有「${escapeHtml(r.keyword)}」的課程。`)
+      : "找不到符合的課程，可以少一個條件再試試看。");
+  }
+  html += `共找到 <b>${total}</b> 門課${total > SHOW ? `，先列出前 ${SHOW} 門（可以再加條件縮小範圍）` : ""}：`;
+  html += items.map(asCourseHtml).join("");
+  return html;
+}
+
+function asConflict(a, b) {
+  return a.time.some(x => b.time.some(y => x.day === y.day && x.session.some(s => y.session.includes(s))));
+}
+
+// 排課推薦：找出不衝堂、剛好湊滿 need 學分的組合
+async function asPlan(r) {
+  const need = r.need;
+  const { items } = await asFetch(r, 200, { withCredits: true });
+  const names = new Set(selectedCourses.map(c => c.name));
+  const seen = new Set();
+  const cand = items.filter(c => {
+    if (!(c.credit > 0 && c.credit <= need)) return false;
+    if (!c.time.length) return false;                        // 沒有上課時間的課無法檢查衝堂
+    if (selectedCourses.some(x => x.id === c.id)) return false;
+    if (names.has(c.name) || seen.has(c.name)) return false; // 同名的課只留一班
+    if (checkTimeConflict(c)) return false;                  // 跟目前課表衝堂
+    seen.add(c.name);
+    return true;
+  }).sort((a, b) => b.credit - a.credit).slice(0, 60);
+
+  let html = `我理解的條件：${asTagsHtml(r)}`;
+  if (cand.length === 0) {
+    return html + "找不到跟目前課表不衝堂的課，可以放寬條件再試試看。";
+  }
+
+  // 深度優先搜尋，最多 4 門課；找到的方案依「門數少、上課天數少」排序
+  const plans = [];
+  let steps = 0;
+  const pick = [];
+  (function dfs(start, sum) {
+    if (++steps > 40000 || plans.length >= 300) return;
+    if (sum === need) { plans.push([...pick]); return; }
+    if (pick.length >= 4) return;
+    for (let i = start; i < cand.length; i++) {
+      const c = cand[i];
+      if (sum + c.credit > need) continue;
+      if (pick.some(p => asConflict(p, c))) continue;
+      pick.push(c); dfs(i + 1, sum + c.credit); pick.pop();
+    }
+  })(0, 0);
+
+  if (plans.length === 0) {
+    html += `找不到剛好湊滿 ${need} 學分的組合，以下是符合條件、而且不衝堂的課，可以自己挑：`;
+    return html + cand.slice(0, 5).map(asCourseHtml).join("");
+  }
+
+  const daysOf = p => new Set(p.flatMap(c => c.time.map(t => t.day)));
+  plans.sort((a, b) => a.length - b.length || daysOf(a).size - daysOf(b).size);
+  const chosen = [];
+  for (const p of plans) {   // 盡量挑彼此不同課的方案
+    if (chosen.length >= 3) break;
+    if (chosen.every(q => p.filter(c => q.includes(c)).length < p.length)) chosen.push(p);
+  }
+
+  html += `幫你找到 <b>${plans.length >= 300 ? "300+" : plans.length}</b> 種剛好 ${need} 學分、而且不衝堂的組合，推薦這 ${chosen.length} 種：`;
+  chosen.forEach((p, i) => {
+    const ids = p.map(c => c.id).join(",");
+    const days = [...daysOf(p)].sort().map(d => AS_DAY_NAME[d]).join("、");
+    html += `<div class="as-plan"><h4>方案 ${i + 1}：${p.length} 門課，共 ${need} 學分（${days}）</h4>
+      ${p.map(asCourseHtml).join("")}
+      <div class="as-course" style="border:none;background:none;padding:6px 0 0;"><button class="as-btn main" onclick="asAddPlan('${ids}', this)">整個方案加入課表</button></div>
+    </div>`;
+  });
+  return html;
+}
+
+function asEnsureCourse(id) {
+  const c = asCourses.get(id);
+  if (c && !courses.some(x => x.id === id)) courses.push(c);
+  return c;
+}
+
+function asRefreshButtons() {
+  document.querySelectorAll("[data-as-add]").forEach(b => {
+    const on = selectedCourses.some(x => x.id === b.getAttribute("data-as-add"));
+    b.disabled = on; b.textContent = on ? "已加入" : "加入課表";
+  });
+  document.querySelectorAll("[data-as-fav]").forEach(b => {
+    b.textContent = favoriteIds.has(b.getAttribute("data-as-fav")) ? "★ 已收藏" : "☆ 收藏";
+  });
+}
+
+function asAdd(id) {
+  if (!asEnsureCourse(id)) return;
+  addCourse(id);   // 衝堂時一樣會先詢問
+  asRefreshButtons();
+}
+
+function asAddPlan(ids, btn) {
+  const list = ids.split(",").map(asEnsureCourse).filter(Boolean)
+    .filter(c => !selectedCourses.some(x => x.id === c.id));
+  if (list.some(c => checkTimeConflict(c)) || list.some((a, i) => list.slice(i + 1).some(b => asConflict(a, b)))) {
+    alert("課表在推薦之後有變動，這個方案現在會衝堂，請重新問一次");
+    return;
+  }
+  list.forEach(c => selectedCourses.push(c));
+  updateSelectedCoursesList();
+  updateScheduleDisplay();
+  updateCreditDistribution();
+  if (currentDisplayedCourses.length > 0) updatePaginationDisplay();
+  asRefreshButtons();
+  btn.disabled = true;
+  btn.textContent = "已加入課表 ✓";
+  asPush("bot", `已把 ${list.length} 門課加入課表，記得按「儲存課表」喔！`);
+}
+
+async function asFav(id) {
+  if (!asEnsureCourse(id)) return;
+  await toggleFavorite(id);
+  asRefreshButtons();
 }
 
 // ===== 【新增】收藏課程 =====

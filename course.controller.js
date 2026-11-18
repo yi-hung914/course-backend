@@ -117,8 +117,41 @@ async function buildDeptWhere(req) {
     .split(",")
     .map(s => Number(s.trim()))
     .filter(n => Number.isInteger(n) && n >= 1 && n <= 7);
-  if (dayList.length > 0) {
-    where.sections = { some: { schedules: { some: { day: { in: dayList } } } } };
+  // 【新增】slot=morning,afternoon,evening → 上午（第 1～4 節）、下午（第 5～9 節）、晚上（第 10～14 節）開始上課
+  //   跟 day 一起用時，要「同一個上課時間」同時符合，例如 day=3&slot=afternoon = 週三下午有上課
+  const SLOT_RANGE = { morning: [1, 4], afternoon: [5, 9], evening: [10, 14] };
+  const slotList = [...new Set(String(req.query.slot ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(s => SLOT_RANGE[s]))];
+
+  const scheduleWhere = {};
+  if (dayList.length > 0) scheduleWhere.day = { in: dayList };
+  if (slotList.length > 0) {
+    scheduleWhere.OR = slotList.map(s => ({ start: { gte: SLOT_RANGE[s][0], lte: SLOT_RANGE[s][1] } }));
+  }
+  if (Object.keys(scheduleWhere).length > 0) {
+    where.sections = { some: { schedules: { some: scheduleWhere } } };
+  }
+
+  // 【新增】noday=5 → 這幾天「完全沒有課」的課（智慧助理：「週五不想上課」）
+  const noDayList = String(req.query.noday ?? "")
+    .split(",")
+    .map(s => Number(s.trim()))
+    .filter(n => Number.isInteger(n) && n >= 1 && n <= 7);
+  if (noDayList.length > 0) {
+    where.AND = [...(where.AND || []), {
+      sections: { every: { schedules: { none: { day: { in: noDayList } } } } },
+    }];
+  }
+
+  // 【新增】credits=2,3 → 2 學分或 3 學分的課（智慧助理用）
+  const creditList = String(req.query.credits ?? "")
+    .split(",")
+    .map(s => Number(s.trim()))
+    .filter(n => Number.isInteger(n) && n >= 0 && n <= 20);
+  if (creditList.length > 0) {
+    where.credits = { in: creditList };
   }
 
   return { where, deptRaw, deptList };

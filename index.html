@@ -948,9 +948,11 @@
                     <!-- 篩選器 -->
                     <div class="filter-container" id="course-filters">
                         <div class="filter-item active" data-filter="all">全部課程</div>
+                        <!-- 【修改】課程類別分成四種，互不重疊：必修、選修（專業課）、通識必修、通識選修 -->
                         <div class="filter-item" data-filter="core">必修課程</div>
                         <div class="filter-item" data-filter="elective">選修課程</div>
-                        <div class="filter-item" data-filter="general">通識課程</div>
+                        <div class="filter-item" data-filter="gen-core">通識必修</div>
+                        <div class="filter-item" data-filter="gen-elective">通識選修</div>
                         <div class="filter-item" data-filter="1">一年級</div>
                         <div class="filter-item" data-filter="2">二年級</div>
                         <div class="filter-item" data-filter="3">三年級</div>
@@ -1883,26 +1885,25 @@ function nextPage() {
 }
 
         // ===== 篩選器功能 =====
-        // 【修改】可以複選，條件分成三組，組和組之間是「而且」：
-        //   - 必修 / 選修：同時選兩個 = 不限
-        //   - 通識：只看通識課（可再搭配必修/選修，例如 通識 + 必修 = 通識必修）
-        //   - 年級：可選多個，同組是「或」，例如 一年級 + 二年級 = 一或二年級
+        // 【修改】可以複選，條件分成三組，同組是「或」，組和組之間是「而且」：
+        //   - 課程類別：必修、選修（專業課）、通識必修、通識選修，四種互不重疊
+        //       例：必修 + 選修 = 所有專業課；必修 + 通識必修 = 所有必修課
+        //   - 年級：例如 一年級 + 二年級 = 一或二年級
+        //   - 上課星期：例如 週一 + 週三 = 週一或週三有上課
         //   例：必修 + 一年級 = 一年級的必修課
         //   「全部課程」= 清掉所有條件
         //   篩選交給後端做，每頁筆數才會固定、不會出現空頁
-        let selectedTypes = new Set();    // "core"（必修）、"elective"（選修）
+        let selectedTypes = new Set();    // "core"（必修）、"elective"（選修）、"gen-core"（通識必修）、"gen-elective"（通識選修）
         let selectedGrades = new Set();   // "1" ~ "4"
-        let generalOnly = false;          // 【新增】只看通識課
         let selectedDays = new Set();     // 【新增】上課星期 "1" ~ "5"
         let selectedSemester = "";        // 【新增】學年學期，例如 "1141"；空字串 = 不限
         let filterListenersReady = false; // 避免登入時重複綁定事件（重複綁定會讓點一下等於點兩下）
 
         function refreshFilterChips() {
-            const noFilter = selectedTypes.size === 0 && selectedGrades.size === 0 && !generalOnly && selectedDays.size === 0;
+            const noFilter = selectedTypes.size === 0 && selectedGrades.size === 0 && selectedDays.size === 0;
             document.querySelectorAll('.filter-item').forEach(item => {
                 const f = item.getAttribute("data-filter");
                 const on = f === "all" ? noFilter
-                         : f === "general" ? generalOnly
                          : f.startsWith("day-") ? selectedDays.has(f.slice(4))
                          : /^\d$/.test(f) ? selectedGrades.has(f)
                          : selectedTypes.has(f);
@@ -1913,12 +1914,9 @@ function nextPage() {
         // 把篩選條件轉成後端的查詢參數
         function buildFilterParams() {
             let params = "";
-            // 必修、選修只選其中一個才需要篩；兩個都選 = 全部
-            if (selectedTypes.size === 1) {
-                params += `&required=${selectedTypes.has("core") ? "true" : "false"}`;
-            }
-            if (generalOnly) {
-                params += "&category=general";
+            // 【修改】課程類別：選了幾種就帶幾種（同組是「或」）；四種全選 = 全部，不用帶
+            if (selectedTypes.size > 0 && selectedTypes.size < 4) {
+                params += `&kind=${[...selectedTypes].sort().join(",")}`;
             }
             if (selectedGrades.size > 0) {
                 params += `&grade=${[...selectedGrades].sort().join(",")}`;
@@ -1971,7 +1969,6 @@ function nextPage() {
         function clearAllFilters() {
             selectedTypes.clear();
             selectedGrades.clear();
-            generalOnly = false;
             selectedDays.clear();
             refreshFilterChips();
         }
@@ -1985,8 +1982,6 @@ function nextPage() {
                 item.addEventListener('click', function() {
                     if (f === "all") {
                         clearAllFilters();
-                    } else if (f === "general") {
-                        generalOnly = !generalOnly;   // 再點一次就取消
                     } else if (f.startsWith("day-")) {
                         const d = f.slice(4);
                         selectedDays.has(d) ? selectedDays.delete(d) : selectedDays.add(d);

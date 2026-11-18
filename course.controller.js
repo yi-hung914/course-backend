@@ -90,6 +90,23 @@ async function buildDeptWhere(req) {
     where.type = "general";
   }
 
+  // 【新增】kind=課程類別（可複選，同組是「或」），四種互不重疊：
+  //   core = 必修（專業）、elective = 選修（專業）、gen-core = 通識必修、gen-elective = 通識選修
+  //   例：kind=core,elective → 所有專業課；kind=core,gen-core → 所有必修課
+  const KIND_WHERE = {
+    "core":         { required: true,  type: { not: "general" } },
+    "elective":     { required: false, type: { not: "general" } },
+    "gen-core":     { required: true,  type: "general" },
+    "gen-elective": { required: false, type: "general" },
+  };
+  const kinds = [...new Set(String(req.query.kind ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(k => KIND_WHERE[k]))];
+  if (kinds.length > 0 && kinds.length < 4) {
+    where.AND = [...(where.AND || []), { OR: kinds.map(k => KIND_WHERE[k]) }];
+  }
+
   // 【修改】學期：沒有自己課程資料的學期，都顯示「課程資料來源學期」（預設 1101 = 110-1）
   //   管理者匯入某學期的課程後，選那個學期就會顯示它自己的課
   //   要換預設資料來源，在 .env 加上 COURSE_DATA_SEMESTER=學期代碼（例如 1141）再重啟後端
